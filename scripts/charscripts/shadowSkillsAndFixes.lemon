@@ -27,17 +27,36 @@ function void InitializeGameCharacters()
 		shadow.targetsign = 0
 		shadow.HomingTimer = 0
     }
-    
-	// global.xtrachar 3 comp stats
-	if (competition_mode.active)
-	{
-		EXS3_speedcap = 0x0600
-		EXS3_acceleration = 0x0015
-		EXS3_deceleration = 0x0200
-	}
 	
+	// Call the base function
 	base.InitializeGameCharacters()
-	return
+}
+
+// Sets the availability status of the character for selection in the Competition menu.
+function bool ExtraChar.CompetitionMode.isCharacterAvailable(u8 xtrachar)
+{
+	// Enable Shadow for selecting in Competition mode menus
+	if (global.xtrachar == 3)
+		return true
+	
+	// Return the base function
+	return base.ExtraChar.CompetitionMode.isCharacterAvailable(xtrachar)
+}
+
+// Sets physics in Competition mode for Extra characters.
+function void ExtraChar.CompetitionMode.Character.setupPhysics(u8 xtrachar, u16 speedcap, u16 acceleration, u16 deceleration)
+{
+	// Shadow's physics
+	if (xtrachar == 3)
+	{
+		speedcap = 0x0600
+		acceleration = 0x0015
+		deceleration = 0x0200
+		// DONT RETURN// DONT RETURN
+	}
+
+	// Call the base function
+	base.ExtraChar.CompetitionMode.Character.setupPhysics(xtrachar, speedcap, acceleration, deceleration)
 }
 
 //Taken from scripts/maingame/outro/outro_shared.lemon
