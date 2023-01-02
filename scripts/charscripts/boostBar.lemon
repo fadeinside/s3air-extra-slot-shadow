@@ -4,7 +4,7 @@ function void RenderHUD()
 {
 	
 	//Draw only for shadow!
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.RenderHUD()
 		return
@@ -52,7 +52,7 @@ function void RenderBoostBar()
 function void InitializeGameCharacters()
 {
 	//start with a full bar or not based on the checkpoint value
-	if (global.characters != CHARS_SONIC_AND_TAILS || global.characters != CHARS_SONIC_ALONE && XtraChar == 3)
+	if (global.characters != CHARS_SONIC_AND_TAILS || global.characters != CHARS_SONIC_ALONE && global.xtrachar == 3)
 	{
 		if(checkpoint.number == 0 && global.stage_type == 0)
 		{

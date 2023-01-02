@@ -2,7 +2,7 @@
 //Cycle between colors with no flash, faster cycle for the hyper form.
 function void UpdatePaletteEffects.SuperForm.moddingVersion(u8 characterVersion)
 {
-	if ((XtraChar != 3 && !isMainCharacter(CHARACTER_SONIC)) || getMainCharacter() != 5)
+	if ((global.xtrachar != 3 && !isMainCharacter(CHARACTER_SONIC)) || getMainCharacter() != 5)
 	{
 		base.UpdatePaletteEffects.SuperForm.moddingVersion(characterVersion)
 		return 

@@ -2,7 +2,7 @@
 function bool Character.updateSuperPeelout()
 { 
 	//V1.11 Other characters (EG: Extra Life) should be able to peelout!
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		return false
 	}
@@ -12,7 +12,7 @@ function bool Character.updateSuperPeelout()
 //resets all shadows variables and comp stats
 function void InitializeGameCharacters()
 {
-    if (XtraChar == 3)
+    if (global.xtrachar == 3)
     {
         shadow.WallLatch = 0
         shadow.DropDown = false
@@ -28,7 +28,7 @@ function void InitializeGameCharacters()
 		shadow.HomingTimer = 0
     }
     
-	// Xtrachar 3 comp stats
+	// global.xtrachar 3 comp stats
 	if (competition_mode.active)
 	{
 		EXS3_speedcap = 0x0600
@@ -118,7 +118,7 @@ function void Character.updateUprightOnGround()
 		return
 	}
 	
-    if (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+    if (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 	    base.Character.updateUprightOnGround()
 		return
@@ -204,7 +204,7 @@ function void Character.updateUprightOnGround()
 
 function void updateCharacterRollingOnGround()
 {
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.updateCharacterRollingOnGround()
 		return
@@ -264,7 +264,7 @@ function void updateCharacterRollingOnGround()
 function void Character.updateJumpMoves()
 {
 	//this has to trigger for shadow only
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.updateJumpMoves()
 		return
@@ -746,7 +746,7 @@ function void CompetitionMode.Character.BaseUpdate(u32 mainRoutineTableAddress)
 //# address-hook(0x011036) end(0x01105e)
 function void Character.UpdateSonicRollingInAir()
 {	
-    if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+    if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.UpdateSonicRollingInAir()
 		return
@@ -755,7 +755,7 @@ function void Character.UpdateSonicRollingInAir()
 	shadow.ForceBoostOff = false
 	Character.updateJumpMoves()
 	//MANAGE WALL LATCH
-	if ((competition_mode.active && char.character == 5) && shadow.WallLatch > 1 || XtraChar == 3 && shadow.WallLatch>1)
+	if ((competition_mode.active && char.character == 5) && shadow.WallLatch > 1 || global.xtrachar == 3 && shadow.WallLatch>1)
 	{
 		//hanging on walls -> don't update controls, apply fixed downward speed
 		Character.CheckAgainstMoveBorders()
@@ -783,7 +783,7 @@ function void Character.UpdateSonicRollingInAir()
 		return
 	}
 	//MANAGE HOMING
-	if ((competition_mode.active && char.character == 5) && shadow.Homing == 3 || XtraChar == 3 && shadow.Homing == 3)
+	if ((competition_mode.active && char.character == 5) && shadow.Homing == 3 || global.xtrachar == 3 && shadow.Homing == 3)
 	{ //SOZ2 Boss hitting the NON REAL head of the golem
 		shadow.Homing = 0
 		shadow.HomingTimer = 0
@@ -792,7 +792,7 @@ function void Character.UpdateSonicRollingInAir()
 		char.flags &= ~char.flag.CONTROL_LOCK
 	}
 	
-	if ((competition_mode.active && char.character == 5) && shadow.Homing == 2 || XtraChar == 3 && shadow.Homing == 2)
+	if ((competition_mode.active && char.character == 5) && shadow.Homing == 2 || global.xtrachar == 3 && shadow.Homing == 2)
 	{
 		push(A1)
 
@@ -838,7 +838,7 @@ function void Character.UpdateSonicRollingInAir()
 function void Character.LandingOnGroundResetState()
 {
 	//only shadow enters this custom
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.LandingOnGroundResetState()
 		return
@@ -890,7 +890,7 @@ function void Character.LandingOnGroundResetState()
 //# address-hook(0x010a94) end(0x010ae8)
 function void Character.BaseUpdate.Sonic()
 {
-    if (XtraChar == 3)
+    if (global.xtrachar == 3)
     {
         if (!super.active || !super.active & 0x80 && !global.super_emeralds == 7)
 	    {
@@ -906,7 +906,7 @@ function void Character.BaseUpdate.Sonic()
 function void Character.OnCollisionWithDynamicObject()
 {
 //only shadow enters this custom
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.OnCollisionWithDynamicObject()
 	}
@@ -950,7 +950,7 @@ function void Character.OnCollisionWithDynamicObject()
 			if (!attacking)
 			{
 				bool isThreat = false
-				if (XtraChar == 3 || char.double_jump_state == 0 || (char.flags & char.flag.UNDERWATER))
+				if (global.xtrachar == 3 || char.double_jump_state == 0 || (char.flags & char.flag.UNDERWATER))
 				{
 					isThreat = true
 				}
@@ -1125,7 +1125,7 @@ function void Character.OnCollisionWithDynamicObject()
 					}
 				}
 
-				if (A0 != 0xffffb000 && competition_mode.active &&  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active))
+				if (A0 != 0xffffb000 && competition_mode.active &&  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active))
 				{
 					// Sorry player 2, you can't open monitors in normal game
 					return
@@ -1183,7 +1183,7 @@ function void Character.OnCollisionWithDynamicObject()
 function void Character.OnThreatCollision()
 {
 	//only check for shadow
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.OnThreatCollision()
 		return
@@ -1251,7 +1251,7 @@ function void Character.OnThreatCollision()
 //# address-hook(0x0153c2) end(0x01560a)
 function void Character.CheckCollision()
 {
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.CheckCollision()
 		return
@@ -1614,7 +1614,7 @@ function void Character.CheckCollision()
 //# address-hook(0x01560c) end(0x01569a)
 function void Character.LandingOnGround()
 {
-	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.LandingOnGround()
 		return
@@ -1646,7 +1646,7 @@ function void Character.LandingOnGround()
 //# address-hook(0x017b24) end(0x017bb4)
 function void Character.LandingOnGroundNoSpindash()
 {
-if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.Character.LandingOnGroundNoSpindash()
 		return
@@ -1658,7 +1658,7 @@ if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_S
 //Fix for balloons popping on a wall latching shadow (EG: DA GARDEN)
 function void fn0317ae()
 {
-    if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+    if  (!competition_mode.active && (global.xtrachar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
 	{
 		base.fn0317ae()
 		return
@@ -1722,7 +1722,7 @@ function void fn0317ae()
 //# address-hook(0x00eae6) end(0x00eaea)
 function void CollectLevelRing()
 {
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		shadow.BoostPool += 16
 	}
@@ -1735,7 +1735,7 @@ function void CollectLevelRing()
 //# address-hook(0x01a596) end(0x01a5e8)
 function void CollectRing()
 {
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		if (u8[0xffffb02b] & char.bonus.SHIELD_LIGHTNING) //moving rings taken with the shield should still give 20 points
 		{
@@ -1753,7 +1753,7 @@ function void CollectRing()
 //# address-hook(0x01d8ac) end(0x01d906)
 function void ItemEffect.ApplyExtraRings()
 {
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		shadow.BoostPool = min(shadow.BoostPool+200, 1800)
 	}
@@ -1767,7 +1767,7 @@ function void GiantRing.Grant50Rings()
 	//I need to script using A0 here
 	push(A0)
 	A0 = 0xffffb000 // point at player 1, thanks	
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		shadow.BoostPool = 1800
 	}
@@ -1780,7 +1780,7 @@ function void GiantRing.Grant50Rings()
 
 function void Enemy.addScore(u32 enemyAddress, u32 scoreLookup)
 {
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
 	{
 		base.Enemy.addScore(enemyAddress, scoreLookup)
 		return
@@ -1833,7 +1833,7 @@ function void Enemy.addScore(u32 enemyAddress, u32 scoreLookup)
 ////Invincibility recharges the boost bar too by 3 per frame  // NAH -- THIS IS TOO OP
 //function void Character.updateBonusEffects()
 //{
-//	if (XtraChar == 3)
+//	if (global.xtrachar == 3)
 //	{
 //		if (((char.bonus_effect & char.bonus.INVINCIBLE) && char.invinc.countdown > 0)||super.active)
 //		{
@@ -1849,7 +1849,7 @@ function void Enemy.addScore(u32 enemyAddress, u32 scoreLookup)
 //# address-hook(0x010294) end(0x010364)
 function void Character.GettingHurt()
 {
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.Character.GettingHurt()
 		return
@@ -1935,7 +1935,7 @@ function void Character.GettingHurt()
 	char.invuln.countdown = 120
 
 #if STANDALONE
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		// Reset drop dash
 		sonic.dropdash_counter = 0
@@ -1960,7 +1960,7 @@ function void fn01fd08()
 {
 	//I'm unsure A1 already has the player1 in, so better safe than sorry
 	A1 = 0xffffb000
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn01fd08()
 		return
@@ -2072,7 +2072,7 @@ function void fn01fd08()
 function void fn021568()
 {
 	A1 = 0xffffb000
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
 	{
 		base.fn021568()
 		return
@@ -2188,7 +2188,7 @@ function void SpringVertical.ApplyToCharacter()
 {
 	//OBJA1 IS A CHARACTER HERE, I NEED TO SEE IF IT'S PLAYER 1 AND SHADOW	
 	//note: char.character = u8[A0 + 0x38]
-	if (A1 == 0xffffb000 && XtraChar == 3)
+	if (A1 == 0xffffb000 && global.xtrachar == 3)
 	{
 		shadow.isBoosting = false
 		char.flags &= ~char.flag.CONTROL_LOCK
@@ -2203,7 +2203,7 @@ function void SpringVertical.ApplyToCharacter()
 //# address-hook(0x00fe8e) end(0x00ff04)
 function void Character.CheckCollisionsWithDynamicObjects()
 {
-	if  ((!competition_mode.active) && (XtraChar == 3 || competition_mode.active && char.character == 5))
+	if  ((!competition_mode.active) && (global.xtrachar == 3 || competition_mode.active && char.character == 5))
 	{
 		SonicUpdateRingCollection()
 		UpdateShieldDeflecting()
@@ -2224,7 +2224,7 @@ function void Character.CheckCollisionsWithDynamicObjects()
 //# address-hook(0x033392) end(0x0335a6)
 function void fn033392()
 {
-	if (A1 != 0xffffb000 || XtraChar != 3)
+	if (A1 != 0xffffb000 || global.xtrachar != 3)
 	{
 		base.fn033392()
 		return
@@ -2366,7 +2366,7 @@ function void fn033392()
 //# address-hook(0x0335c4) end(0x0337d6)
 function void fn0335c4()
 {
-	if (A1 != 0xffffb000 || XtraChar != 3)
+	if (A1 != 0xffffb000 || global.xtrachar != 3)
 	{
 		base.fn0335c4()
 		return
@@ -2513,7 +2513,7 @@ function void fn031e96()
 		return
 #endif
 
-	if (A1 != 0xffffb000 || XtraChar != 3)
+	if (A1 != 0xffffb000 || global.xtrachar != 3)
 	{
 		base.fn031e96()
 		return
@@ -2654,7 +2654,7 @@ function void fn03077e()
 //# address-hook(0x01e9b6) end(0x01e9e4)
 function void fn01e9b6()
 {
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn01e9b6()
 		return
@@ -2994,7 +2994,7 @@ function u32 Shadow.checkObject(u32 shortestDistance)
 //# address-hook(0x063d1a) end(0x063dd2)
 function void fn063d1a()
 {
-    if (XtraChar == 3)
+    if (global.xtrachar == 3)
 	{
 		//force Knux as viable target!
 		//note: this is triggered as the boss fight room is reached
@@ -3009,7 +3009,7 @@ function void fn063d1a()
 //# address-hook(0x064310) end(0x06434e)
 function void fn064310()
 {
-    if (XtraChar == 3)
+    if (global.xtrachar == 3)
 	{
 		//force Knux as viable target!
 		//note: this is triggered as the boss fight room is reached
@@ -3097,7 +3097,7 @@ function bool isThisAnHomingTarget()
 //# address-hook(0x0317ae) end(0x03181c)
 function void fn0317ae()
 {
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
 	{
 		base.fn0317ae()
 		return
@@ -3130,7 +3130,7 @@ function void fn0317ae()
 		}
 	}
 
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{		
 		playSound(0x77)
 		u8[A0 + 0x34] = 0x01
@@ -3156,7 +3156,7 @@ function void fn063eda()
 	fn066094()
 	
 	//this returns THE CLOSEST PLAYER into A1. I need to check if it is player1 and Shadow
-	if (A1 == 0xffffb000 && XtraChar == 3 && shadow.Homing == 2 && D3.u16 < 0x20 && D2.u16 < 0x20)
+	if (A1 == 0xffffb000 && global.xtrachar == 3 && shadow.Homing == 2 && D3.u16 < 0x20 && D2.u16 < 0x20)
 	//shadow is homing, let's see if he is close enough for a punch to the face
 	//also increased y check to 20 because knux should punch something in air too
 	{
@@ -3217,7 +3217,7 @@ function bool fn0879a8()
 	//backup stuff as usual, as I don't know where is the player
 	push(A0)
 	A0 = 0xffffb000 // point at player 1, thanks	
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		A0 = pop() //restore register
 		return base.fn0879a8() //use base function		
@@ -3253,7 +3253,7 @@ function bool fn0879a8()
 //# address-hook(0x0772f6) end(0x0773aa)
 function void fn0772f6()
 {
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn0772f6()
 		return
@@ -3350,7 +3350,7 @@ function void fn05675c()
 //backup stuff as usual, as I don't know where the player is stored here
 	push(A0)
 	A0 = 0xffffb000 // point at player 1, thanks	
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		A0 = pop() //restore register
 		base.fn05675c() //use base function		
@@ -3392,7 +3392,7 @@ function void fn05675c()
 function void fn0453e6()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn0453e6()
 		return
@@ -3497,7 +3497,7 @@ function void fn0453e6()
 function void fn024d9a()
 {
 	//OBJA1 is the character
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
 	{
 		base.fn024d9a()
 		return
@@ -3552,7 +3552,7 @@ function void fn024d9a()
 function void fn03fd4e()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn03fd4e()
 		return
@@ -3636,7 +3636,7 @@ function void fn03fd4e()
 function void fn03fe70()
 {
 	//OBJA1 is the character
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
 	{
 		base.fn03fe70()
 		return
@@ -3720,7 +3720,7 @@ function void fn03fe70()
 function void fn03ff9e()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn03ff9e()
 		return
@@ -3818,7 +3818,7 @@ function void fn03ff9e()
 function void fn029620()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn029620()
 		return
@@ -3887,7 +3887,7 @@ function void fn029620()
 function void fn04952a()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn04952a()
 		return
@@ -3950,7 +3950,7 @@ function void fn04952a()
 function void fn04964a()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn04964a()
 		return
@@ -4068,7 +4068,7 @@ function void fn04964a()
 function void fn025d2c()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn025d2c()
 		return
@@ -4094,7 +4094,7 @@ function void fn025d2c()
 function void fn042ec0()
 {
 	//OBJA1 is the character
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn042ec0()
 		return

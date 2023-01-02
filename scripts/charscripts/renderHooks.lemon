@@ -267,11 +267,11 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
 		return true
 	}
 	
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
-    	if(objA0.update_address == 0x0837b2 && XtraChar == 3) //SIGNPOST
+    	if(objA0.update_address == 0x0837b2 && global.xtrachar == 3) //SIGNPOST
         {		
-    		if(objA0.animation.sprite == 0x00 && XtraChar == 3)//SHADOW
+    		if(objA0.animation.sprite == 0x00 && global.xtrachar == 3)//SHADOW
     		{		
     			u8 atex = 0x40 + 0x20 * getMainCharacter()
     			if (global.zone_act == 0x0100)||(global.zone_act == 0x0101) //use the underwater colored for hydrocity 1 and 2 (the sign is moved during act transition)
@@ -286,14 +286,14 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		}            
         }
         
-    	if (PilotS == 0 && XtraChar == 3 && (objA0.update_address == 0x0677ce || objA0.update_address == 0x067800)) //0x05ea52
+    	if (PilotS == 0 && global.xtrachar == 3 && (objA0.update_address == 0x0677ce || objA0.update_address == 0x067800)) //0x05ea52
 		{
 			u64 key = "Sonic_Torn"
 			Renderer.drawCustomSprite(key, px, py, 0, flags, renderQueue)
 			return true
 		}
     	
-    	if ((objA0.update_address == 0x067472 || (isSonicIntro() && objA0.update_address == 0x01abb6 && objA0.base_state == 0x1A)) && XtraChar == 3)
+    	if ((objA0.update_address == 0x067472 || (isSonicIntro() && objA0.update_address == 0x01abb6 && objA0.base_state == 0x1A)) && global.xtrachar == 3)
     		{
     			u64 key = (objA0.animation.sprite == 0x21 ? "shadow_float_0": objA0.animation.sprite == 0x22 ? "shadow_float_1": "character_slot3_0x%02x")
     			u8 atex = 0x40 + getMainCharacter() * 0x20
@@ -302,9 +302,9 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		}
     	//CHARACTERS TEXTS
     	//  - Character name			-> objA0.animation.sprite = 0x13 ... 0x16
-    	if (objA0.update_address == 0x02dd98 && XtraChar == 3)
+    	if (objA0.update_address == 0x02dd98 && global.xtrachar == 3)
     	{
-    		if (objA0.animation.sprite == 0x13 && XtraChar == 3)	// SHADOW
+    		if (objA0.animation.sprite == 0x13 && global.xtrachar == 3)	// SHADOW
     		{
     		    if (Mania_Title_Cards)
     		    {
@@ -332,10 +332,10 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//  - 0x23			   = "got a"
     	//  - 0x24			   = "Chaos Emerald"
     	//  - 0x30			   = "Super Emerald"
-    	if (gameMode == 0x48 || gameMode == 0x0c && XtraChar == 3)	// Blue Spheres results + fade to main game afterwards
+    	if (gameMode == 0x48 || gameMode == 0x0c && global.xtrachar == 3)	// Blue Spheres results + fade to main game afterwards
     	{
     		// Blue Spheres results texts
-    		if (objA0.update_address == 0x02ea50 || objA0.update_address == 0x02ec1e || objA0.update_address == 0x02dd98 && XtraChar == 3)
+    		if (objA0.update_address == 0x02ea50 || objA0.update_address == 0x02ec1e || objA0.update_address == 0x02dd98 && global.xtrachar == 3)
     		{
     			bool isSKStage = (global.lock_on_state == 0 && global.sk_bluespheres)
     			
@@ -369,7 +369,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//small characters on the tornado
     	//this object address is for BOTH the character ON the plane and the driver!
     	//check its subtype as well
-    	if (objA0.update_address == 0x05ed18 && XtraChar == 3) //standing character
+    	if (objA0.update_address == 0x05ed18 && global.xtrachar == 3) //standing character
     	{				
     		if (objA0.subtype2c != 0) //standing character
     		{
@@ -389,7 +389,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//small and micro plane
     	//small plane and micro outside
     	//0x05d86a is contemporarily the small tornado flying right and the micro one flying left!
-    	if(objA0.update_address == 0x05d86a && XtraChar == 3)
+    	if(objA0.update_address == 0x05d86a && global.xtrachar == 3)
     	{    
     		//if flying left use the micro character
     		if (char.render_flags & 0x01)
@@ -410,7 +410,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		}		
     	}
     
-        if (objA0.update_address == 0x05e18a && XtraChar == 3)
+        if (objA0.update_address == 0x05e18a && global.xtrachar == 3)
     		{
     			u64 key = "ShadowPose"
     			if (Renderer.hasCustomSprite(key))
@@ -420,7 +420,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     			}
     		}
     	
-    	if (global.game_mode == 0x14 && XtraChar == 3)
+    	if (global.game_mode == 0x14 && global.xtrachar == 3)
     	{
     			// Continue Icons
     			if (objA0.update_address == 0x05ca5c)
@@ -439,14 +439,14 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     			}
     	}
     		// Continue icon
-    	if ((objA0.update_address == 0x02ebe8 || objA0.update_address == 0x02ec4a) && objA0.animation.sprite >= 0x29 && objA0.animation.sprite <= 0x2b && XtraChar == 3)
+    	if ((objA0.update_address == 0x02ebe8 || objA0.update_address == 0x02ec4a) && objA0.animation.sprite >= 0x29 && objA0.animation.sprite <= 0x2b && global.xtrachar == 3)
     	{
     		u64 key = continue_iconsShadow()
     		Renderer.drawCustomSprite(key, px, py, 0x00, flags, renderQueue)
     		return true
     	}
     	//Bluespheres Palette
-    	if (gameMode == 0x34 || gameMode == 0x48 || gameMode == 0x2c || gameMode == 0x30 || global.game_mode == 0x85 || global.game_mode == 0x87) && ((XtraChar == 3)) //just check for shadow, thanks!
+    	if (gameMode == 0x34 || gameMode == 0x48 || gameMode == 0x2c || gameMode == 0x30 || global.game_mode == 0x85 || global.game_mode == 0x87) && ((global.xtrachar == 3)) //just check for shadow, thanks!
     	{
     	    if (blueSphereEXS)
     			{
@@ -658,7 +658,7 @@ function s32 ESS_saveboxgetcolor_Es3()
 function u64 getCharacterPaletteKey(u8 character)
 {
 	u8 gameMode = global.game_mode & 0x7f
-	if (((XtraChar == 3 && character == CHARACTER_SONIC) && gameMode != 0x4c) || character == 5)
+	if (((global.xtrachar == 3 && character == CHARACTER_SONIC) && gameMode != 0x4c) || character == 5)
 	{
 	    if (shadow.isBoosting || shadow.Homing>1 || shadow.DropDown)
 	    {
@@ -753,7 +753,7 @@ function void shadowoncoords()
 //so that Mighty gets positioned correctly
 function void Mighty_Coords()
 {
-    objA0.position.x.u16 = (XtraChar == 3) ? 333 : 254
+    objA0.position.x.u16 = (global.xtrachar == 3) ? 333 : 254
     objA0.position.y.u16 = 304
 }
 
@@ -849,7 +849,7 @@ global bool PilotS
 //# address-hook(0x05ecb4) end(0x05ed0c)
 function void fn05ecb4()
 {
-    if (XtraChar != 3)
+    if (global.xtrachar != 3)
     {
         base.fn05ecb4()
         return
@@ -888,7 +888,7 @@ function void fn05ecb4()
 //# address-hook(0x05eb32) end(0x05eb66)
 function void fn05eb32()
 {
-	 if (XtraChar != 3)
+	 if (global.xtrachar != 3)
     {
         base.fn05eb32()
         return

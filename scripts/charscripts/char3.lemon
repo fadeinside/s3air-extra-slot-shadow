@@ -14,7 +14,7 @@ function void Slot3Char()
 
 function u64 getCharacterBonusTextIcon(u8 character)
 {
-	if (XtraChar == 3)
+	if (global.xtrachar == 3)
 	{
 		return "3hud_bonus_icon_blue"
 	}
@@ -210,7 +210,7 @@ function bool XtraThreeHUD()
 //# address-hook(0x02e3b8) end(0x02e3c2)
 function void fn02e3b8()
 {
-	if (XtraChar != 3)
+	if (global.xtrachar != 3)
 	{
 		base.fn02e3b8()
 		return
