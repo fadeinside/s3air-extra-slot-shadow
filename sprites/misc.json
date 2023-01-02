@@ -1,0 +1,45 @@
+{
+	//mania
+	"dataSel_character_shadowm":  { "File": "dataSel_character_Shadowm.png", "Rect": "0,0,59,59", "Center": "27,37" },
+	"dataSel_lifeContinue_shadow":  { "File": "dataSel_lifeContinueShadowm.png", "Rect": "0,0,25,40", "Center": "5,16" },
+	"dataSel_life_shadow":  { "File": "dataSel_lifeContinueShadowm.png", "Rect": "0,0,25,16", "Center": "5,16" },
+	
+	//data select
+	"dataSel_slot3":  { "File": "interface.png", "Rect": "38,16,28,39", "Center": "13,39" },
+	"dataSel_lifeContinue_slot3":  { "File": "interface.png", "Rect": "18,16,20,40", "Center": "16,-8" },
+	
+	//data select but extra save slots
+	"ESS_Cont_Es3":  { "File": "icons_saveextra.png", "Rect": "40,16,20,24", "Center": "10,24" },
+	"ESS_Life_Es3":  { "File": "icons_saveextra.png", "Rect": "32,0,16,16", "Center": "8,16" },
+	"ESS_Char_Es3":  { "File": "interface.png", "Rect": "38,16,28,39", "Center": "13,39" },
+    "ESS_Zone_Es3_0":  { "File": "shadowfinish.png", "Rect": "0,0,80,56", "Center": "40,28" },
+	"ESS_Zone_Es3_1":  { "File": "shadowfinish.png", "Rect": "80,0,80,56", "Center": "40,28" },
+	"ESS_Zone_Es3_2":  { "File": "shadowfinish.png", "Rect": "160,56,80,56", "Center": "40,28" },
+	
+	//speed shoes
+	"monitor_shadow_shoe":  { "File": "shadowshoe.png", "Rect": "0,0,16,16", "Center": "8,8" },
+	
+	//snowboarding sprites
+	"3_snowboarding_0x01":  { "File": "shadow_snowboarding.png", "Rect": "4,0,48,64", "Center": "22,39" },
+	"3_snowboarding_0x02":  { "File": "shadow_snowboarding.png", "Rect": "68,4,32,56", "Center": "16,18" },
+	"3_snowboarding_0x03":  { "File": "shadow_snowboarding.png", "Rect": "116,4,48,56", "Center": "23,23" },
+	"3_snowboarding_0x04":  { "File": "shadow_snowboarding.png", "Rect": "176,4,40,56", "Center": "21,22" },
+	"3_snowboarding_0x05":  { "File": "shadow_snowboarding.png", "Rect": "232,4,40,56", "Center": "19,22" },
+	"3_snowboarding_0x06":  { "File": "shadow_snowboarding.png", "Rect": "280,12,56,40", "Center": "28,17" },
+	"3_snowboarding_0x07":  { "File": "shadow_snowboarding.png", "Rect": "336,12,56,42", "Center": "28,19" },
+	"3_snowboarding_0x08":  { "File": "shadow_snowboarding.png", "Rect": "392,12,56,40", "Center": "28,17" },
+	"3_snowboarding_0x09":  { "File": "shadow_snowboarding.png", "Rect": "452,4,48,56", "Center": "27,20" },
+	"3_snowboarding_0x0a":  { "File": "shadow_snowboarding.png", "Rect": "504,4,56,56", "Center": "34,22" },
+	"3_snowboarding_0x0b":  { "File": "shadow_snowboarding.png", "Rect": "560,8,56,48", "Center": "28,20" },
+	"3_snowboarding_0x0c":  { "File": "shadow_snowboarding.png", "Rect": "616,4,56,56", "Center": "26,22" },
+
+    //bumper of blue spheres
+    "bump_slot3_0x00":  { "File": "bumper.png", "Rect": "0,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x01":  { "File": "bumper.png", "Rect": "24,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x02":  { "File": "bumper.png", "Rect": "48,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x03":  { "File": "bumper.png", "Rect": "72,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x04":  { "File": "bumper.png", "Rect": "96,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x05":  { "File": "bumper.png", "Rect": "120,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x06":  { "File": "bumper.png", "Rect": "144,0,16,16", "Center": "8,8" },
+	"bump_slot3_0x07":  { "File": "bumper.png", "Rect": "168,0,16,16", "Center": "8,8" },
+}

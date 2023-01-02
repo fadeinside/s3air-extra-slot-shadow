@@ -1,0 +1,9 @@
+{
+	//EXAMPLE: "34": { "File": "...", "Type": "Sound" },
+	"shadowairdash":      { "File": "AirDash.ogg", "Type": "Sound"},
+	"shadowboost":      { "File": "Boost.ogg", "Type": "Sound"},
+	"shadowhoming":      { "File": "Homing.ogg", "Type": "Sound"},
+	"shadowlockon":      { "File": "LockOn.ogg", "Type": "Sound"},
+	"shadowland":      { "File": "StompLand.ogg", "Type": "Sound"},
+	"shadowstomp":      { "File": "StompStart.ogg", "Type": "Sound"}
+}

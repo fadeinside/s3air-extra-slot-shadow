@@ -1,0 +1,77 @@
+{
+	"Metadata":
+	{
+		"Name": "Extra Slot 3D2D Shadow",
+		"Author": "Sotaknuck & 1funniman",
+		"Description": "Shadow The Hedgehog is now playable in an extra slot without overriding Sonic with his moveset from Sonic 3D in 2D!",
+		"URL": "https://sotaknuck.itch.io/sonic3d2d",
+		"ModVersion": "1.1.0",
+		"GameVersion": "21.09.12.0",
+	},
+	"Settings":
+	{
+		"Group1":
+		[
+		    {
+        		"InternalName": "Shadow Partner",
+        		"DisplayName": "Partner",
+        		"Variable": "hasPartner",
+        		"DefaultValue": "0",
+        		"Category": "Gameplay",
+        		"Options":
+        		{
+        			"0": "Alone",
+        			"1": "With Tails"
+        		}
+		    },
+		    {
+        		"InternalName": "shadowinfinite",
+        		"DisplayName": "Hyper Unlimited Boost Gauge",
+        		"Variable": "hyperBoostInf",
+        		"DefaultValue": "0",
+        		"Category": "Gameplay",
+        		"Options":
+        		{
+        			"0": "Normal",
+        			"1": "Unlimited"
+        		}
+		    },
+		    {
+        		"InternalName": "speed shoes",
+        		"DisplayName": "Unique Speed Shoes Icon",
+        		"Variable": "isSpeedshoes",
+        		"DefaultValue": "0",
+        		"Category": "Appearance",
+        		"Options":
+        		{
+        			"0": "Custom",
+        			"1": "Default"
+        		}
+		    },
+		    {
+        		"InternalName": "Shadow Falling Sprites",
+        		"DisplayName": "Falling Sprites",
+        		"Variable": "fallingsprites",
+        		"DefaultValue": "0",
+        		"Category": "Appearance",
+        		"Options":
+        		{
+        			"0": "Off",
+        			"1": "On"
+        		}
+		    },
+		    {
+        		"InternalName": "Plane Tornado Pilot",
+        		"DisplayName": "Tornado Plane Pilot",
+        		"Variable": "PilotS",
+        		"DefaultValue": "0",
+        		"Category": "Misc.",
+        		"Options":
+        		{
+        			"0": "Sonic",
+        			"1": "Tails"
+        		}
+		    },
+		]
+	},
+}

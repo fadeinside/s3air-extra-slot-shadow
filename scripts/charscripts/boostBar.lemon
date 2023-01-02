@@ -1,0 +1,127 @@
+//inject the boost bbar in the hud process, before the debug mode takes over
+//# address-hook(0x00db44) end(0x00dbb2)
+function void RenderHUD()
+{
+	
+	//Draw only for shadow!
+	if (XtraChar != 3)
+	{
+		base.RenderHUD()
+		return
+	}
+	
+	//Draw the bar if we are playing as shadow, we have a hud, it's not a special stage, doomsday or the super emerald version of hidden palace
+	if ((global.zone < 0x13 && global.zone != 0x0c) || global.zone == 0x16 || global.zone_act == 0x1700)
+	{
+		RenderBoostBar()
+	}
+	//also render the homing target
+	if (shadow.Homing == 1)
+	{
+		RenderHomingTarget()
+	}
+	
+	//GO ON WITH THE BASIC GAME
+	base.RenderHUD()
+	return
+}
+
+function void RenderBoostBar()
+{
+	//if debug is on, don't render like the rest of the hud
+	if (DEBUG_DISABLE_HUD)
+		return
+		
+	u64 key = stringformat("3d2dshadow_boostbar_%d", shadow.BoostPool / 30) 
+	
+	//render with HUD priority and properties
+	s16 baseX = global.level_started
+	if (baseX < 0)
+	{
+		baseX += 8
+		global.level_started = baseX
+	}
+	baseX += 0x0f
+	s16 baseY = 0x48
+	u16 renderQueue = 0xe000
+	HUD.drawSprite(key, baseX, baseY, renderQueue)
+	HUD.drawSprite("3d2dshadow_boostframe", baseX - 11, 43, renderQueue)
+}
+
+//# address-hook(0x006a76) end(0x006bd6)
+function void InitializeGameCharacters()
+{
+	//start with a full bar or not based on the checkpoint value
+	if (global.characters != CHARS_SONIC_AND_TAILS || global.characters != CHARS_SONIC_ALONE && XtraChar == 3)
+	{
+		if(checkpoint.number == 0 && global.stage_type == 0)
+		{
+			shadow.BoostPool = 1800 //MAX
+			checkpoint.BoostPool = 1800
+		}
+		else
+		{
+			shadow.BoostPool = checkpoint.BoostPool
+		}	
+	}
+	
+	base.InitializeGameCharacters()
+	return
+}
+
+function void RenderHomingTarget()
+{
+	//if debug is on, don't render like the rest of the hud
+	//to make things well, also reset the homing entirely
+	if (DEBUG_DISABLE_HUD)
+	{
+		shadow.targetsign = 0
+		return
+	}
+	
+	if (shadow.target.OLD == 0)
+		shadow.target.OLD = shadow.target
+	
+	if (shadow.target.OLD != shadow.target)
+		shadow.targetsign = 1
+	shadow.target.OLD = shadow.target
+	
+	push(A1)
+	//retrieve the targeted thing
+	A1 = shadow.target
+	//get the position relative to the camera
+	//manage offset in soz2
+	
+	u16 tx = objA1.position.x.u16 - camera.position.x.u16
+	u16 ty = objA1.position.y.u16 - camera.position.y.u16
+	
+	if (shadow.homingSOZ2offset)
+	{
+		tx = tx - 25
+		ty = ty - 45
+	}
+	
+	u64 key
+	if (shadow.targetsign < 9)
+	{
+		key = stringformat("shadow_target_%d", shadow.targetsign)
+		shadow.targetsign += 1
+		if (shadow.targetsign == 9)
+			Audio.playAudio("shadowlockon", AudioContext.CONTEXT_SOUND)
+	}
+	else
+		key = "shadow_target_7"
+	
+	u16 renderQueue = 0xe000
+	HUD.drawSprite(key, tx, ty, renderQueue)
+	A1 = pop()
+}
+
+//Backup the boost on a checkpoint
+//# address-hook(0x02d164) end(0x02d1ca)
+function void fn02d164()
+{
+	checkpoint.BoostPool = shadow.BoostPool
+	//continue with checkpoint stuff
+	base.fn02d164()
+}

@@ -1,0 +1,4115 @@
+//shadow doesn't peelout. Other charachers should be able to though!
+function bool Character.updateSuperPeelout()
+{ 
+	//V1.11 Other characters (EG: Extra Life) should be able to peelout!
+	if (XtraChar == 3)
+	{
+		return false
+	}
+	return base.Character.updateSuperPeelout()
+}
+
+//resets all shadows variables and comp stats
+function void InitializeGameCharacters()
+{
+    if (XtraChar == 3)
+    {
+        shadow.WallLatch = 0
+        shadow.DropDown = false
+        shadow.Airdash = 0
+        shadow.airBoost = false
+        shadow.Homing = 0
+		shadow.isBoosting = false
+		shadow.HomingTimer = 0
+		shadow.WallJump = false
+		shadow.BoostWave = 0
+		shadow.ForceBoostOff = false
+		shadow.targetsign = 0
+		shadow.HomingTimer = 0
+    }
+    
+	// Xtrachar 3 comp stats
+	if (competition_mode.active)
+	{
+		EXS3_speedcap = 0x0600
+		EXS3_acceleration = 0x0015
+		EXS3_deceleration = 0x0200
+	}
+	
+	base.InitializeGameCharacters()
+	return
+}
+
+//Taken from scripts/maingame/outro/outro_shared.lemon
+
+//Provides a fix for the credits where the game would crash (hopefully)
+
+//# address-hook(0x05b204) end(0x05b282)
+function void fn05b204()
+{
+    #if GAMEAPP >= 0x22091000
+    	u16 oldCamPos = camera.position.y >> 16
+    	camera.position.y += outro.scroll_speed
+    	u16 newCamPos = camera.position.y >> 16
+    
+    	if ((oldCamPos & 0x0010) != (newCamPos & 0x0010))
+    	{
+    		// Next line of text
+    		D0.u16 = (newCamPos << 4) + 0x0e00
+    		D1.u16 = D0.u16 & 0x0f00
+    		fn05b2d6()		// Clear VRAM first for the text line
+    		A1 = CreditsDataGenerator.build(u16[0xfffffaae] / 4)
+    		u32 address = 0x05b284
+    		address += u16[0xfffffaae]		// Credits table index (times 4), this is either 0 or 4
+    		address += (global.lock_on_state == 0) ? 0 : 8	// S3&K credits has some more entries, especially in the music sections
+    		A1 = u32[address]
+    		// u16[0xfffffa84] is the line index (times 2) of the next text to print
+    		u16 lineIndex = u16[0xfffffa84]
+    		A1 = tableLookupAddress(A1, lineIndex)
+    
+    		// D2.u16 encodes:
+    		//  - Upper byte: Credits line number when to print the text (empty lines until this is reached)
+    		//  - Bits 1..7:  X-position in patterns where to start the text and color
+    		//  - Bit 0:      Text color: white or yellow
+    		D2.u16 = u16[A1]
+    		A1 += 2
+    
+    		if (D2.u16 == 0xfff8)
+    		{
+    			// Switch to next credits table
+    			//  -> There are two of them, as each is limited to 0x100 lines
+    			//  -> It's even three for S3AIR
+    			fn05b294()
+    		}
+    		else if (D2.u16 == 0xfff4)
+    		{
+    			fn05b29e()
+    		}
+    		else
+    		{
+    			// D0.u16 counts up here until reaching D3.u16, producing empty lines in between
+    			D0.u16 &= 0xff00
+    			D3.u16 = D2.u16 & 0xff00
+    			if (D3.u16 == D0.u16)
+    			{
+    				// Next actual text line
+    				D6.u16 = (D2.u16 & 0x0001) ? (sprite_attribute.PRIORITY | sprite_attribute.PALETTE.LINE1 | (ContinueScreen.TextTiles.targetInVRAM >> 5)) : (sprite_attribute.PRIORITY | (ContinueScreen.TextTiles.targetInVRAM >> 5))	// Includes base sprite VRAM address + the palette to use
+    				D2.u16 &= 0x0ffe	// This is the start offset from the left side inside plane A
+    
+    				// Print next characters, read from address A1 (using ASCII encoding)
+    				fn05b318()
+    				u16[0xfffffa84] += 2
+    			}
+    		}
+    	}
+    #elseif GAMEAPP <= 0x22050800
+        base.fn05b204()
+    #endif
+}
+
+//shadow's B on ground is the boost, but down B is still the spindash
+
+//on the ground we have to check for boost before anything else
+function void Character.updateUprightOnGround()
+{
+	if (((global.zone == 0x04 || global.zone == 0x07 || global.zone == 0x08||global.zone == 0x16|| global.zone == 0x0a) && level.capsule_opened)) //if the capsule has been opened CPU shadow has to jump normally (it uses B!) in all automatic cutscenes
+	{
+		base.Character.updateUprightOnGround()
+		return
+	}
+	
+    if (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+	    base.Character.updateUprightOnGround()
+		return
+	}
+	
+	shadow.Homing = 0
+	shadow.HomingTimer = 0
+	shadow.ForceBoostOff = false
+	
+	//if the player is braking, the boost has to stop as well as the pallete change
+	//if the player is in a slide/fall animation too 
+	if (char.state == char.state.BRAKING|| char.state == char.state.FALLING_PANIC && char.state != char.state.GOT_HURT && char.state != char.state.GOT_HURT_PANIC)
+	{
+		char.double_jump_state = 2		
+		 
+	}
+	//if B is pressed this is a BOOST not a jump
+	//BUTTTTTTTT Shadow should still be able to jump
+	//NOTE TO SELF: use control.player1.state <-- to check if the button is HELD pressed
+	//				use control.pad1.pressed <-- to check if a button has been pressed only
+	//not trying to roll/spindash or already boosting
+	if (control.player1.state & CONTROL_B && char.state != char.state.FALLING_PANIC && char.state != char.state.GOT_HURT && char.state != char.state.GOT_HURT_PANIC && char.state != char.state.LOOKING_UP)//	&& (shadow.isBoosting || ((control.player1.state & CONTROL_DOWN ) == 0) && char.double_jump_state == 0))
+	{
+		if (shadow.isBoosting || ((control.player1.state & CONTROL_DOWN ) == 0) && char.double_jump_state == 0)
+		        ShadowPressedBoost()
+	}
+	else
+	{
+		//if B is not pressed, we can reboost
+		char.double_jump_state = 0
+		shadow.isBoosting = false
+		char.flags &= ~char.flag.CONTROL_LOCK
+	}
+	
+	if (Character.UpdateSpindash())
+		return
+
+#if STANDALONE
+	if (char.character == CHARACTER_SONIC && Game.getSetting(SETTING_SUPER_PEELOUT))
+	{
+		if (Character.updateSuperPeelout())
+			return
+	}
+#endif
+
+	//shadow should jump only with A or C
+	if ((control.pad1.pressed & CONTROL_A)||(control.pad1.pressed & CONTROL_C))
+	{
+		if (Character.CheckStartJump())
+		{//if shadow was boosting, he shoud stay in running state	
+			if (shadow.isBoosting)
+			{
+				if (char.state == char.state.ROLLING)
+				{
+				// Stop rolling, adjust hitbox
+					char.flags &= ~char.flag.ROLLING
+
+					s16 dy = s16(char.hitbox_extends.y) - s16(char.hitbox.default.y)
+					char.position.y.u16 += (global.inv_gravity) ? -dy : dy
+
+					char.hitbox_extends.x = char.hitbox.default.x
+					char.hitbox_extends.y = char.hitbox.default.y
+					char.state = char.state.STANDING
+				}
+				if (char.state == char.state.STANDING)
+				{
+					char.state = char.state.RUNNING
+				}
+				//oh and lock controls, shadow should NEVER change direction in a jump boost
+				char.flags |= char.flag.CONTROL_LOCK
+			}
+			return
+		}
+	}
+	Character.UpdateUprightSlopeEffect()
+	Character.updateUprightOnGroundInner()
+	//do not allow rolling if boosting
+	if (!shadow.isBoosting)
+		Character.CheckForStartRolling()
+
+	Character.sharedUpdateOnGround()
+}
+
+function void updateCharacterRollingOnGround()
+{
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.updateCharacterRollingOnGround()
+		return
+	}
+     
+	//shadow can boost out of a roll
+	//not trying to roll/spindash or already boosting
+	if (control.player1.state & CONTROL_B)//	&& (shadow.isBoosting || ((control.player1.state & CONTROL_DOWN ) == 0) && char.double_jump_state == 0))
+	{
+		if (shadow.isBoosting || ((control.player1.state & CONTROL_DOWN ) == 0) && char.double_jump_state == 0)
+			ShadowPressedBoost()
+	}
+	else if (!shadow.ForceBoostOff) //not locked by a force roll
+	{
+		//if B is not pressed, we can reboost
+		char.double_jump_state = 0
+		shadow.isBoosting = false
+		char.flags &= ~char.flag.CONTROL_LOCK
+	}
+	
+	//shadow should jump only with A or C
+	if (char.spindash == 0 && ((control.pad1.pressed & CONTROL_A)||(control.pad1.pressed & CONTROL_C)))
+	{
+		if (Character.CheckStartJump())
+		{//if shadow was boosting, he should stay in running state	
+			if (shadow.isBoosting)
+			{
+				if (char.state == char.state.ROLLING)
+				{
+				// Stop rolling, adjust hitbox
+					char.flags &= ~char.flag.ROLLING
+
+					s16 dy = s16(char.hitbox_extends.y) - s16(char.hitbox.default.y)
+					char.position.y.u16 += (global.inv_gravity) ? -dy : dy
+
+					char.hitbox_extends.x = char.hitbox.default.x
+					char.hitbox_extends.y = char.hitbox.default.y
+					char.state = char.state.STANDING
+				}
+				if (char.state == char.state.STANDING)
+				{
+					char.state = char.state.RUNNING
+				}
+			}
+			return
+		}
+	}
+
+	Character.UpdateRollingSlopeEffect()
+	updateCharacterControlOnGround()
+
+	Character.sharedUpdateOnGround()
+}
+
+
+//shadow doesn't dropdash.
+function void Character.updateJumpMoves()
+{
+	//this has to trigger for shadow only
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.updateJumpMoves()
+		return
+	}
+	u8 input_state     = control.player1.state
+	u8 input_pressed   = control.player1.pressed
+	bool isSuperActive = super.active
+		
+	if (char.jumping)
+	{
+		if (shadow.ForceHomingBounce>0)
+			shadow.ForceHomingBounce -=1
+		//reduce Wall Collision Timer
+		//if (shadow.CollisionTimer > 0)
+		//{
+		//	shadow.CollisionTimer = shadow.CollisionTimer -1
+		//}
+		// Limit velocity.y
+		s16 max_vy = (char.flags & char.flag.UNDERWATER) ? -0x200 : -0x400
+		if (char.velocity.y < max_vy && !shadow.WallJump) //it must not happen if we released a wall jump! They are always max power
+		{
+			// Limit vertical velocity while not pressing any jump button
+			//  -> This is important to support low jumps by just tapping the button briefly
+			if ((input_state & CONTROL_ABC) == 0)
+			{
+				char.velocity.y = max_vy
+			}			
+		}
+		else
+		{
+			if (shadow.Homing == 2) //Homing takes over everything
+			{
+				Shadow.isTargetStillValid()
+				return
+			}
+			//double jump state is consumed only by the air dash
+			//dropping down disables boosting mid air
+			//wall latch disables all but allows to jump again
+			if (char.double_jump_state < 2) //skills not disabled (drop down or fall from a wall)
+			{
+				if (shadow.WallLatch < 2)
+				{
+					if (char.double_jump_state == 0)&&(!shadow.airBoost)		
+					{ //can't home nor airdash if boosting (or boosted and stopped mid air)
+						
+						//search for a boost target here
+						//scan object on screen like cleareneemiesonscreen does
+						Shadow.SearchHomingTarget()
+						//if we have a target we should draw the sign on it
+						if (shadow.target > 0)
+						{
+							if (shadow.targetsign < 1)
+								shadow.targetsign = 1
+						}
+						else //turn it off
+							shadow.targetsign = 0
+						
+						#if STANDALONE
+							if (buttonPressed(BUTTON_Y))
+							{
+								if (!isSuperActive && char.invuln.countdown == 0)	// Check invulnerability to prevent spamming of super activate + cancel
+								{
+									if (Character.performSuperTransformation())
+										return
+								}
+							}
+						#endif
+						
+						//Shadow has split controls -- B button is boost or stomp if down is pressed				
+						// Check if pressed jump again in mid-air
+						if (control.pad1.pressed & CONTROL_A)||(control.pad1.pressed & CONTROL_C)//A or C
+						{
+						#if STANDALONE
+							// Check for other things to do instead of the usual reaction to jump button pressed
+							if (onCharacterPressedJumpInMidAir(input_state, input_pressed))
+						#endif
+							{
+								//air dash or homing
+								ShadowPressedJumpInMidAir()						
+							}
+						}				
+					}
+					if (control.pad1.pressed & CONTROL_B)
+					{
+						if (control.player1.state & CONTROL_DOWN)
+						{ //activate drop					
+							ShadowPressedDrop()
+						}
+						else
+						{//activate boost
+							ShadowPressedBoost() //same function as on the ground
+						}				
+					}
+					if (shadow.isBoosting && (control.player1.state & CONTROL_B) )
+					{ //keep boost going
+						ShadowPressedBoost()
+					}				
+					else
+					{
+						shadow.isBoosting = false
+						//char.flags &= ~char.flag.CONTROL_LOCK //air control should be restored at the end of a homing, not all the time, or it breaks the spindash-jump lock
+					}
+				}
+				else //attached on a wall -> slide down. The player can make a weak diagonal jump with skill reset
+				{	
+					//shadow doesn't need inputs to stay on the wall, but he should slide down
+					//shadow needs a speed Y to check collisions.
+					//shadow needs a speed X to check collisions. This is done in the jumpinmidair function
+					//as it accounts for gravity
+					char.velocity.y = 0 //needed for landing on a slope at the end of a wall
+					char.velocity.x = 0 //not sure, but I want 0 in this block
+					if (shadow.WallLatch == 3)
+					{//left facing wall						
+						char.flags &= ~char.flag.FACING_LEFT												
+					}
+					else
+					{//right facing wall
+						char.flags |= char.flag.FACING_LEFT					
+					}
+
+					if (control.pad1.pressed & CONTROL_A)||(control.pad1.pressed & CONTROL_C)//A Or C pressed -> jump diagonally with a weak jump
+					{					
+						shadow.WallJump = true
+						//restore controls
+						char.flags &= ~char.flag.CONTROL_LOCK
+						//set everything back in a jump state
+						//jump strengthh depends if underwater. Super/hyper has no effect
+						u16 acceleration
+						if (char.flags & char.flag.UNDERWATER)
+						{
+							acceleration = 0x190
+						}
+						else
+						{
+							acceleration = 0x380
+						}
+
+						char.velocity.y = -acceleration
+						acceleration = acceleration * 2
+						if (shadow.WallLatch == 3)
+						{//left facing wall						
+							char.velocity.x = acceleration							
+						}
+						else
+						{//right facing wall
+							char.velocity.x = -acceleration
+						}																
+						//reset values
+						shadow.FrameCounter = 0
+						shadow.WallLatch = 0
+						
+						char.double_jump_state = 0
+						char.flags |= char.flag.IN_AIR
+						char.flags &= ~char.flag.PUSHING
+						char.jumping = 1
+						char.on_convex_surface = 0
+						playSound(SFX_JUMP)
+					}
+				}	
+			}
+		}
+	}
+	else //not jumping -- it means he is mid air for other reasons EG falling or running from ramps
+	{
+		if (char.spindash == 0)
+		{
+			char.velocity.y = max(char.velocity.y, -0x0fc0)
+		}
+		if (shadow.isBoosting && (control.player1.state & CONTROL_B) )
+		{ //keep boost going
+			ShadowPressedBoost()
+		}				
+		else
+		{
+			shadow.isBoosting = false
+			char.flags &= ~char.flag.CONTROL_LOCK
+		}
+	}
+}
+
+function void ShadowPressedJumpInMidAir()
+{
+	//in 3D 2D Shadow can homing attack something (enemy, boss, spring or monitor)
+	//if nothing is in sight, he just air dashes
+	//the air dash state should trigger the wall latch if a wall is hit
+	//HOMING -> only in a jump, only if skills not used
+	//only if we have a target
+	//should be re-doable if successful
+	
+	if (shadow.Homing == 1 && shadow.target != 0) //has target
+	{
+		shadow.Airdash = 1
+		shadow.Homing = 2 //is homing		
+		char.flags |= char.flag.CONTROL_LOCK //lock controls during homing
+		shadow.WallLatch = 0 //make sure that wall latch doesn't happen (should not, but whatever)
+		shadow.targetsign = 0
+		Audio.playAudio("shadowhoming", AudioContext.CONTEXT_SOUND)
+		
+		 
+		
+		if (super.active & 0x80 && global.super_emeralds == 7)
+    	{
+    		global.whiteflash_timeout = 6
+            playSound(SFX_SPINDASH_RELEASE)
+    		Audio.playAudio("peelout_release", AudioContext.CONTEXT_SOUND) //stronger sound for hyper form
+    		camera.hyper_knux_shake = 0x0114
+    	}
+	}
+	else
+	{
+		//AIRDASH - weak vertical jump with forward momentum
+		//the air dash enables wall latching on collision
+		//the air dash has to restore air control or the player can wall latch and stay stuck
+		char.flags &= ~char.flag.CONTROL_LOCK
+		char.velocity.y = 0
+		shadow.WallLatch = 1 //wall latch can happen	
+		//jump strength depends if underwater. Super/hyper has no effect (it accellerates by itself already)
+		u16 acceleration
+		if (char.flags & char.flag.UNDERWATER)
+		{
+			acceleration = 0x190
+		}
+		else
+		{
+			acceleration = 0x380
+		}
+
+		char.velocity.y -= acceleration
+		acceleration = acceleration * 2
+		//direction pressed forces the dash, if no direction pressed I'll use shadow's direction
+		if (control.pad1.pressed & CONTROL_LEFT)
+		{
+			char.velocity.x = -acceleration
+		}
+		else if (control.pad1.pressed & CONTROL_RIGHT)
+		{
+			char.velocity.x = acceleration
+		}
+		else if (char.flags & char.flag.FACING_LEFT)
+		{//facing left				
+			char.velocity.x = -acceleration
+		}
+		else
+		{//facing right
+			char.velocity.x = acceleration				
+		}																
+		//reset values
+		
+		char.double_jump_state = 0
+		char.flags |= char.flag.IN_AIR
+		char.flags &= ~char.flag.PUSHING
+		char.jumping = 1
+		char.on_convex_surface = 0	
+		shadow.Airdash = 1 //start airdash animation, play airdash sound
+		Audio.playAudio("shadowairdash", AudioContext.CONTEXT_SOUND)
+		
+		//air dash used, can't do it again, nor homing, but boost stays enabled
+		char.double_jump_state = 1
+		 
+	}
+}
+
+function void ShadowPressedDrop()
+{
+	//this is exactly like Bluckles' drop
+	//shadow's drop disables boosting, but re-enables homing and air dash if it hits an enemy	
+    if (super.active & 0x80 && global.super_emeralds == 7)
+	{
+		Character.ClearEnemiesOnScreen()
+		global.whiteflash_timeout = 6
+        playSound(SFX_SPINDASH_RELEASE)
+		Audio.playAudio("peelout_release", AudioContext.CONTEXT_SOUND) //stronger sound for hyper form
+	}
+	shadow.DropDown = 1
+	shadow.WallLatch = 0 //disable if air dash was used
+	//disable all skills for now
+	char.double_jump_state = 2
+	char.state = char.state.ROLLING
+	if (char.velocity.x < 0)
+		char.flags |= char.flag.FACING_LEFT
+	else
+		char.flags &= ~char.flag.FACING_LEFT
+	char.velocity.x = 0 // the drop removes all horizontal speed
+	char.velocity.y = 0x700 //vertical drop
+	char.hitbox_extends.x = char.hitbox.default.x
+	char.hitbox_extends.y = char.hitbox.default.y
+	
+	//playSound(0xba)
+	//I Need to play custom audio for stomp start
+	Audio.playAudio("shadowstomp", AudioContext.CONTEXT_SOUND)
+	
+	
+	// Perform a ground collision check after updating the hitbox height
+	//  -> This prevents getting killed when Shadow starts a stomp just above the floor and there's a blocker object right underneath
+	Character.CheckFloorCollision()
+	if (D1.s16 < 0)
+	{
+		char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+	}
+}
+
+										
+function void ShadowPressedBoost() //doesn't really matter if on the ground or midair
+{
+	//BOOST NOTES based on 3d2d
+	// the bar on screen is 61 frames
+	// invincibility should recharge by 3 points per frame
+	// getting hurt causes 1/3 bar loss (/3*2)
+	// rings ad 20 points
+	// lost rings add just 4
+	// bigrings max the bar (1800 points) --> every frame of the bar is 30 points
+	// kill enemies provides 25 50 100 200 400 based on the combo level
+	// 
+	// Boosting discharges by 3 per frame
+	// below 30 points you can't activate the boost
+
+	// direction should not be changed while boosting
+	// enter the boost state.
+	// this state can be re-triggered as long as the boost bar is enabled	
+	
+	//i have to track the angle shadow is, so that I can detect a sudden switch of direction caused by being upside down and the ceiling ends
+	//define char.rotation			=  u8[A0 + 0x26]
+	
+	//stop boost on fans
+	
+	if (char.state == char.state.LIFTED)
+	{
+		shadow.isBoosting = false
+		char.flags &= ~char.flag.CONTROL_LOCK
+		char.double_jump_state = 2
+		shadow.airBoost = false
+		
+		 
+	}
+	
+	if (!shadow.isBoosting && !shadow.ForceBoostOff)
+	{
+		//TEMP
+		//shadow.BoostPool = 500
+		//TEMP
+		if (shadow.BoostPool > 30) //enough juice to boost?
+		{
+			//shake the camera, because wow factor
+			if (!super.active || !super.active & 0x80 && !global.super_emeralds == 7)
+    	    {
+        	    loadCharacterPalette(CHARACTER_SONIC, 0x802000 + 0x00, 0)
+        	}
+			camera.hyper_knux_shake = 0x0114
+			if (super.active & 0x80 && global.super_emeralds == 7)
+			{
+		        Character.ClearEnemiesOnScreen()
+		        global.whiteflash_timeout = 6
+		        playSound(SFX_SPINDASH_RELEASE)
+				Audio.playAudio("peelout_release", AudioContext.CONTEXT_SOUND) //stronger sound for hyper form
+        	}
+			//get shadow out of standing and rolling states if he is
+			if (char.state == char.state.ROLLING)
+			{
+			// Stop rolling, adjust hitbox
+				char.flags &= ~char.flag.ROLLING
+
+				s16 dy = s16(char.hitbox_extends.y) - s16(char.hitbox.default.y)
+				char.position.y.u16 += (global.inv_gravity) ? -dy : dy
+
+				char.hitbox_extends.x = char.hitbox.default.x
+				char.hitbox_extends.y = char.hitbox.default.y
+				char.state = char.state.STANDING
+			}
+			if (char.state == char.state.STANDING)
+			{
+				char.state = char.state.RUNNING
+			}
+			playSound(0x4E)
+			shadow.isBoosting = true
+			// Forcibly Lock Controls
+			// Apply the initial burst of speed
+			s16 velox = max(0xb00, abs(char.groundspeed))
+			if (char.flags & char.flag.FACING_LEFT)
+				velox = -velox
+			char.groundspeed = velox
+			char.velocity.x = (s32(lookupCos(char.rotation)) * char.groundspeed) >> 8		
+			//Don't add Y speed in air
+			if (char.flags & char.flag.IN_AIR == 0)
+				char.velocity.y = (s32(lookupSin(char.rotation)) * char.groundspeed) >> 8
+			char.velocity.x = char.groundspeed
+			// char.flags &= ~char.flag.CONTROL_LOCK <-- this unlocks controls
+			char.flags |= char.flag.CONTROL_LOCK
+			shadow.BoostWave = 1
+		}
+		else //not enough juice, disable to prevent the player from hiccupboosting on the first ring retrieved
+		{
+			char.double_jump_state = 2
+		}
+	}	
+	if (shadow.isBoosting)
+	{
+	    if (!super.active || !super.active & 0x80 && !global.super_emeralds == 7)
+	    {
+    	    if (!super.active || !super.active & 0x80 && !global.super_emeralds == 7)
+    	    {
+        	    loadCharacterPalette(CHARACTER_SONIC, 0x802000 + 0x00, 0)
+        	}
+    	}
+	    
+		if (char.flags & char.flag.IN_AIR)
+		{
+			shadow.airBoost = true
+			//this gives me collision issues on wall latch and landings, so no it won't happen like in 3d2d
+			//shadow.WallLatch = 1 //wall latch can happen
+			
+			//if no longer upside down, I must invert the boost and direction
+			if (shadow.upsidedown.Boost)
+			{
+				if (char.flags & char.flag.FACING_LEFT)
+				{
+					char.flags &= ~char.flag.FACING_LEFT
+					shadow.upsidedown.Boost = false
+				}
+				else
+				{
+					char.flags |= char.flag.FACING_LEFT	
+					shadow.upsidedown.Boost = false
+				}
+			}
+		}
+		else // not in air
+		{
+			if (char.rotation == 0x80) //running upside down
+			{
+				shadow.upsidedown.Boost = true
+			}
+			else
+			{
+				shadow.upsidedown.Boost = false
+			}
+		}
+		//burst away to add to x speed in the locked direction (and angle)	-- same speed as super sonic btw		
+		s16 velox = abs(char.groundspeed)
+		if (velox < 0xb00)
+		{
+			if (super.active)
+				velox = velox + 0x0d5
+			else
+				velox = velox + 0x50
+		}	
+		if (char.flags & char.flag.FACING_LEFT)
+			velox = -velox
+		char.groundspeed = velox
+		char.velocity.x = (s32(lookupCos(char.rotation)) * char.groundspeed) >> 8		
+		//Don't add Y speed in air
+		if (char.flags & char.flag.IN_AIR == 0)
+			char.velocity.y = (s32(lookupSin(char.rotation)) * char.groundspeed) >> 8
+		
+		char.velocity.x = char.groundspeed
+		//consume the boost bar if not hyper and option enabled
+		if (super.active & 0x80 && global.super_emeralds == 7 && hyperBoostInf == 1)
+    	{
+    	    shadow.BoostPool = shadow.BoostPool
+    	}
+    	else
+    	{
+		    shadow.BoostPool -= 3
+    	}
+		if (shadow.BoostPool <= 0||shadow.BoostPool>1800) //this variables overflows so check for >1800
+		{
+			char.flags &= ~char.flag.CONTROL_LOCK
+			shadow.BoostPool = 0
+			shadow.isBoosting = false
+			char.double_jump_state = 2 //not enough juice, disable to prevent the player from hiccupboosting on the first ring retrieved
+		}
+	}
+}
+
+function void CompetitionMode.Character.BaseUpdate(u32 mainRoutineTableAddress)
+{
+	base.CompetitionMode.Character.BaseUpdate(mainRoutineTableAddress)
+}
+
+//# address-hook(0x011036) end(0x01105e)
+function void Character.UpdateSonicRollingInAir()
+{	
+    if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.UpdateSonicRollingInAir()
+		return
+	}
+    
+	shadow.ForceBoostOff = false
+	Character.updateJumpMoves()
+	//MANAGE WALL LATCH
+	if ((competition_mode.active && char.character == 5) && shadow.WallLatch > 1 || XtraChar == 3 && shadow.WallLatch>1)
+	{
+		//hanging on walls -> don't update controls, apply fixed downward speed
+		Character.CheckAgainstMoveBorders()
+		
+		//char.position.x += s32(char.velocity.x) << 8
+		//s32 vy = s32(char.velocity.y) << 8
+		s32 velox = s32(0x100) << 8		
+		char.position.y += global.inv_gravity ? -velox : velox
+		//apply a velocity on X and Y to check for collisions
+		char.velocity.y += 0x38
+		if (shadow.WallLatch == 3)
+		{
+			char.velocity.x -= 0x50
+			char.position.x -= velox
+		}
+		else
+		{
+			char.velocity.x += 0x50
+			char.position.x += velox
+		}		
+		Character.UpdateRotationInAir()
+		//ask the collision to see if we're on a wall
+		shadow.CollisionCheck = true
+		Character.CheckCollision()
+		return
+	}
+	//MANAGE HOMING
+	if ((competition_mode.active && char.character == 5) && shadow.Homing == 3 || XtraChar == 3 && shadow.Homing == 3)
+	{ //SOZ2 Boss hitting the NON REAL head of the golem
+		shadow.Homing = 0
+		shadow.HomingTimer = 0
+		char.velocity.x = -0x200
+		char.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+		char.flags &= ~char.flag.CONTROL_LOCK
+	}
+	
+	if ((competition_mode.active && char.character == 5) && shadow.Homing == 2 || XtraChar == 3 && shadow.Homing == 2)
+	{
+		push(A1)
+
+		A1 = shadow.target
+		//manage offset in soz2
+		s16 dx = objA1.position.x.u16 - char.position.x.u16
+		s16 dy = objA1.position.y.u16 - char.position.y.u16
+		if (shadow.homingSOZ2offset)
+		{
+			dx = dx - 25
+			dy = dy - 45	
+		}
+		u8 angle = lookupAngleByVector(dx, dy)
+		s32 speed_x = (s32(lookupCos(angle)) * 0x0c) >> 8
+		s32 speed_y = (s32(lookupSin(angle)) * 0x0c) >> 8
+		char.velocity.x = speed_x
+		char.velocity.y = speed_y
+		char.position.x.u16 += char.velocity.x
+		char.position.y.u16 += char.velocity.y
+		
+		A1 = pop()		
+		Character.CheckAgainstMoveBorders()
+		Character.CheckCollision()
+		Character.UpdateRotationInAir()
+		return
+	}
+	  
+	Character.UpdateControlInAir()
+	Character.CheckAgainstMoveBorders()
+	Character.UpdateMovement()
+
+	if (char.flags & char.flag.UNDERWATER)
+	{
+		// Gravity
+		char.velocity.y -= 0x28
+	}
+
+	Character.UpdateRotationInAir()
+	Character.CheckCollision()
+}
+
+//landing on the ground with the drop and reset other states too
+function void Character.LandingOnGroundResetState()
+{
+	//only shadow enters this custom
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.LandingOnGroundResetState()
+		return
+	}
+	else
+	{	
+		shadow.Homing = 0
+		shadow.HomingTimer = 0
+		shadow.targetsign = 0
+		shadow.ForceBoostOff = false
+		char.flags &= ~char.flag.IN_AIR
+		char.flags &= ~char.flag.PUSHING
+		char.flags &= ~char.flag.CONTROL_LOCK
+		char.jumping = 0
+		score.bonus_counter = 0		// No more increasing bonuses after hitting the ground
+		char.rotation.x = 0
+		u8[A0 + 0x2d] = 0
+		u8[A0 + 0x30] = 0
+		char.look_up_down_timer = 0
+		//reset wall jump in any case
+		shadow.WallJump = false
+		shadow.WallLatch = 0
+		shadow.airBoost = false
+		 
+		// Check for drop down
+		if (char.double_jump_state != 0)
+		{	
+			//Slam on the ground, stop the animation and shake the floor. Shadow doesn't bounce
+			if (shadow.DropDown)
+			{
+				Audio.playAudio("shadowland", AudioContext.CONTEXT_SOUND)
+				//stop the animation effect and reset its counter
+				shadow.DropDown = false
+				shadow.FrameCounter = 0				
+				camera.hyper_knux_shake = 0x0114
+				//if hyper clear enemies too
+				if (super.active & 0x80 && global.super_emeralds == 7)
+				{
+					global.whiteflash_timeout = 4
+					//NOTE: shadow has no alterations on landing, so no bug on spikes like mighty has
+					Character.ClearEnemiesOnScreen()					
+				}
+			}
+			//char.double_jump_state = 0 this is reset in normal state function, not here
+		}
+	}
+}
+
+//# address-hook(0x010a94) end(0x010ae8)
+function void Character.BaseUpdate.Sonic()
+{
+    if (XtraChar == 3)
+    {
+        if (!super.active || !super.active & 0x80 && !global.super_emeralds == 7)
+	    {
+    	    loadCharacterPalette(CHARACTER_SONIC, 0x802000 + 0x00, 0)
+    	}
+    }
+    
+    base.Character.BaseUpdate.Sonic()
+}
+
+//landing on things with the drop skill or the boost
+//# address-hook(0x00ffd4) end(0x010214)
+function void Character.OnCollisionWithDynamicObject()
+{
+//only shadow enters this custom
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.OnCollisionWithDynamicObject()
+	}
+	else
+	{
+	     
+		//System.writeDisplayLine(stringformat("address: %06x", objA1.update_address))
+		//I have to handle all items, some are not in this collision check, like the cnz balloons (or knuckles)
+		bool isTarget = false
+		if (shadow.Homing == 2)
+		{
+			isTarget = isThisAnHomingTarget()
+			if (isTarget)
+			{
+				//shadow.Homing = 0 cannot turn it off here yet
+				char.flags &= ~char.flag.CONTROL_LOCK
+				shadow.HomingTimer = 0
+				char.velocity.x = 0
+				char.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+				shadow.target = 0
+				if (objA1.update_address == 0x031754||objA1.update_address == 0x025cf0||objA1.update_address == 0x042e00||objA1.update_address == 0x076f46)//Manage CNZ Balloon, lbz and lrz path openers, soz1 boss head
+					shadow.ForceHomingBounce = 10 //I need a counter to sadly cover more calls in the same frame
+			}
+		}
+		//0xd7 Blastoid (cannons) (address 08792e) in hcz hurt shadow when boosting, they have to be managed separately
+		
+		
+		D1.u8 = u8[A1 + 0x28] & 0xc0
+		if (D1.u8 == 0)
+		{
+			// Collision is an enemy, i.e. is harmful, but can be attacked
+			bool attacking = false
+			if (char.bonus_effect & char.bonus.INVINCIBLE)
+			{
+				attacking = true
+			}
+			else if (char.state == char.state.ROLLING || char.state == char.state.SPINDASH||shadow.isBoosting) //shadow is rolling if homing, so no change
+			{
+				attacking = true
+			}
+			if (!attacking)
+			{
+				bool isThreat = false
+				if (XtraChar == 3 || char.double_jump_state == 0 || (char.flags & char.flag.UNDERWATER))
+				{
+					isThreat = true
+				}
+				else
+				{
+					s16 dx = char.position.x.u16 - objA1.position.x.u16
+					s16 dy = char.position.y.u16 - objA1.position.y.u16
+					D0.u8 = lookupAngleByVector(dx, dy) - 0x20
+					isThreat = (D0.u8 >= 0x40)
+				}
+
+				if (isThreat)
+				{
+					Character.OnThreatCollision()
+					return
+				}
+			}
+
+			if (u8[A1 + 0x29] != 0) //BOSSES
+			{
+				char.velocity.x = -char.velocity.x				
+				char.velocity.y = -char.velocity.y
+				char.groundspeed = -char.groundspeed
+				u8[A1 + 0x1c] = A0.u8
+				u8[A1 + 0x25] = u8[A1 + 0x28]
+				u8[A1 + 0x28] = 0
+				--u8[A1 + 0x29]
+				if (u8[A1 + 0x29] == 0)
+				{
+					u8[A1 + 0x2a] |= 0x80
+				}
+				//shadow bounces off on enemies
+				if (shadow.DropDown == 1)
+				{ //if he bounced from dropdown, skills have to reset
+					//he can drop again, air dash and homing, but no boost
+					shadow.DropDown = 2
+					char.double_jump_state = 0					
+					//reduce bounce speed by 1/4
+					char.velocity.y = char.velocity.y /4 * 3
+				}
+				//was this homing? then we have to return to regular jump and bump up
+				if (shadow.Homing == 2)
+				{
+					char.flags &= ~char.flag.CONTROL_LOCK
+					shadow.Homing = 0
+					shadow.HomingTimer = 0
+					char.velocity.x = 0
+					char.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+				}
+			}
+			else
+			{
+				if (u8[A1 + 0x2a] & 0x04)
+				{
+					A2 = 0xffff0000 + u16[A1 + 0x3c]
+					u8[A2] &= ~(1 << u8[A1 + 0x3b])
+				}
+
+				u8[A1 + 0x2a] |= 0x80
+
+				// Grant bonus points
+				Enemy.addScore(A1, 0x010216)
+
+				objA1.update_address = 0x01e5e0
+				u8[A1 + 0x05] = 0
+				if (char.velocity.y < 0)
+				{
+					char.velocity.y += 0x100
+				}
+				else if (char.position.y.u16 >= objA1.position.y.u16)
+				{
+					char.velocity.y -= 0x100
+				}
+				else
+				{
+					char.velocity.y = -char.velocity.y
+				}
+				//Limit bounce with the drop, reallow glide!
+				if (shadow.DropDown == 1)
+				{
+					//reduce bounce speed by 1/4
+					char.velocity.y = char.velocity.y /4 * 3				
+					char.double_jump_state = 0
+					shadow.DropDown = 2						
+				}
+				//was this homing? then we have to return to regular jump and bump up
+				if (shadow.Homing == 2)
+				{					
+					char.flags &= ~char.flag.CONTROL_LOCK
+					shadow.Homing = 0
+					shadow.HomingTimer = 0
+					char.velocity.x = 0
+					char.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+				}
+			}
+		}
+		else if (D1.u8 == 0x40)
+		{
+			D0.u8 = u8[A1 + 0x28] & 0x3f
+			if (D0.u8 != 0x06)
+			{
+				// Collect ring, but only after 30 invulnerability frames
+				//  -> Remember that the "char.invuln.countdown" timer starts at 120
+				u8 timer = competition_mode.active ? char.invuln.countdown : u8[0xffffb034]
+				if (timer < 90)
+				{
+					u8[A1 + 0x05] = 0x04
+				}
+			}
+			else
+			{
+				// This part seems to be for monitors specifically
+				s16 vy = (global.inv_gravity) ? -char.velocity.y : char.velocity.y
+				bool movingUp = (objA1.render_flags & render_flag.FLIP_Y) ? (vy > 0) : (vy < 0)
+				if (movingUp)
+				{
+					if (u8[A1 + 0x2a] & char.flag.IN_AIR)
+					{						
+						if ((objA1.render_flags & render_flag.FLIP_Y) == 0)
+						{
+							if (char.position.y.u16 - 0x10 < objA1.position.y.u16)
+								return
+						}
+						else
+						{
+							if (char.position.y.u16 + 0x10 >= objA1.position.y.u16)
+								return
+						}
+						char.velocity.y = -char.velocity.y
+						
+						//Limit bounce with the drop
+						if (shadow.DropDown == 1)
+						{
+							if (char.velocity.y < -200)//limit bounce speed
+							{
+								char.velocity.y = -200
+							}
+							char.double_jump_state = 0
+							shadow.DropDown = 2
+						}
+												
+						objA1.velocity.y = -0x180
+						if (u8[A1 + 0x3c] == 0)
+							u8[A1 + 0x3c] = 4
+
+						return
+					}
+					else
+					{
+					#if STANDALONE
+						if (u8[A1 + 0x2a] & char.flag.PUSHING)
+						{
+							// In S3AIR, do not allow S&K's monitor opening from the side
+							//  -> This is done to be more consistent with other Sonic games, incl. Sonic 1, 2, CD, Mania and even Sonic 3 alone
+							return
+						}
+						// TODO: Unfinished code here -- it works, but the falling monitor can crush the player, and is this really what we want?
+					/*
+						else
+						{
+							// Hit monitor from below, make it fall
+							u8[A1 + 0x3c] = 1
+
+							char.velocity.y = -char.velocity.y
+							objA1.velocity.y = -0x180
+							if (u8[A1 + 0x3c] == 0)
+								u8[A1 + 0x3c] = 4
+							return
+						}
+					*/
+					#endif
+					}
+				}
+
+				if (A0 != 0xffffb000 && competition_mode.active &&  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active))
+				{
+					// Sorry player 2, you can't open monitors in normal game
+					return
+				}
+				
+				//shadow should open while boosting
+				bool canOpenMonitor = false
+				if (char.state == char.state.ROLLING||shadow.isBoosting)
+				{
+					canOpenMonitor = true
+				}					
+
+				if (canOpenMonitor)
+				{
+					// Bounce off
+					//bounce only if not using dropdown nor homing
+					if (shadow.DropDown == 0 && shadow.Homing != 2)
+					{							
+						char.velocity.y = -char.velocity.y
+					}
+					//was this homing? then we have to return to regular jump and bump up
+					if (shadow.Homing == 2)
+					{	
+						char.flags &= ~char.flag.CONTROL_LOCK
+						shadow.HomingTimer = 0
+						char.velocity.x = 0
+						char.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+						shadow.Homing = 0
+					}
+					u8[A1 + 0x05] = 4
+					u16[A1 + 0x42] = A0.u16
+				}
+			}
+		}
+		else if (D1.u8 == 0x80)
+		{
+			// Harmful object
+			Character.OnThreatCollision()
+		}
+		else  // D1.u8 == 0xc0
+		{
+			// Other interactable object
+			fn0103ba()
+		}
+		if (isTarget)
+		{
+			shadow.Homing = 0
+		}
+	}
+}
+
+//Bullet deflection
+//Shadow can deflect stuff when boosting
+//# address-hook(0x01021e) end(0x010288)
+function void Character.OnThreatCollision()
+{
+	//only check for shadow
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.OnThreatCollision()
+		return
+	}
+	else
+	{
+		// Check for shield or invincibility
+		 
+    	
+		D0.u8 = char.bonus_effect & 0x73
+		if (D0.u8 != 0)
+		{
+			D0.u8 &= u8[A1 + 0x2b]
+			if (D0.u8 != 0)
+			{
+				D0 = 0xffffffff
+				return
+			}
+
+			if ((char.bonus_effect & char.bonus.ANY_SHIELD) == 0)
+			{
+				if ((char.bonus_effect & char.bonus.INVINCIBLE) == 0)
+				{
+					Character.OnThreatCollisionInner()
+				}
+				D0 = 0xffffffff
+				return
+			}
+		}
+		else
+		{
+			// Shadow deflects whevener he is boosting or dropping down
+			bool canDeflect = (shadow.isBoosting||shadow.DropDown == 1) 
+		
+			if (!canDeflect)
+			{
+				Character.OnThreatCollisionInner()
+				return
+			}
+		}
+
+		if ((u8[A1 + 0x2b] & 0x08) == 0)
+		{
+			if ((char.bonus_effect & char.bonus.INVINCIBLE) == 0)
+			{
+				Character.OnThreatCollisionInner()
+			}
+		}
+		else
+		{
+			deflectProjectile()
+		}
+		D0 = 0xffffffff
+	}
+}
+
+//IS SHADOW HITTING A WALL AFTER AN AIR DASH?
+//if so, he should enter wall latch status
+//IS SHADOW NO LONGER ON A WALL BECAUSE HE SLID DOWN?
+//if so he has to go back to jumpball
+//# address-hook(0x011eec) end(0x011fd4)
+//# translated(0x012012) end(0x01209c)
+//# translated(0x01209e) end(0x012100)
+//# translated(0x012102) end(0x012170)
+//# address-hook(0x0153c2) end(0x01560a)
+function void Character.CheckCollision()
+{
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.CheckCollision()
+		return
+	}
+	
+	bool someFlag = u8[0xfffff7c8]
+
+//determine if no wall collision happened
+	bool no_collision = true
+	
+	u32[0xfffff796] = (char.layer_flags1 == 0x0c) ? u32[0xfffff7b4] : u32[0xfffff7b8]
+
+	D5.u8 = char.layer_flags2
+	D0.u16 = lookupAngleByVector(char.velocity.x, char.velocity.y)
+	D0.u8 = (D0.u8 - 0x20) & 0xc0
+	if (D0.u8 == 0)
+	{
+		//mostly downward direction
+		fn00fd9a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+			no_collision = false
+		}
+
+		fn00fa7a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 += D1.u16
+			char.velocity.x = 0
+			no_collision = false
+		}
+
+		Character.CheckFloorCollision()
+		if (D1.s16 < 0)
+		{
+			D2.u8 = (char.velocity.y >> 8) + 8
+			D2.s8 = -D2.s8
+			if (D0.s8 < D2.s8 && D1.s8 < D2.s8)
+				return
+
+			char.rotation = D3.u8
+			char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+
+			if (((D3.u8 + 0x20) & 0x40) == 0)
+			{
+				if (((D3.u8 + 0x10) & 0x20) == 0)
+				{
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+					return
+				}
+				else
+				{
+					char.velocity.y >>= 1
+				}
+			}
+			else
+			{
+				if (shadow.WallLatch == 1)
+				{
+					//make sure the player is rolling: the update function used depends on flags
+					char.flags &= ~char.flag.ROLLING
+					char.state = char.state.ROLLING
+					//also convert it in a jump action
+					char.jumping = true
+					//boosting removes the rolling status
+					playSound(SFX_GRAB)
+					if (char.velocity.x > 0)
+					{
+						shadow.WallLatch = 2 //latched right
+					}
+					else
+					{
+						shadow.WallLatch = 3 //latched left
+					}
+				}
+
+				char.velocity.x = 0
+				char.velocity.y = min(char.velocity.y, 0x0fc0)				
+				no_collision = false
+			}
+
+			Character.LandingOnGround()
+			char.groundspeed = char.velocity.y
+			if (D3.s8 < 0)
+			{
+				char.groundspeed = -char.groundspeed
+			}
+		}
+	}
+	else if (D0.u8 == 0x40)
+	{	
+		//mostly left direction
+		fn00fd9a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+			char.groundspeed = char.velocity.y
+			no_collision = false
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			D1.s16 = -D1.s16
+			if (D1.s16 < 0x14)
+			{
+				if (global.inv_gravity)
+					D1.s16 = -D1.s16
+
+				char.position.y.u16 += D1.u16
+				char.velocity.y = max(char.velocity.y, 0)
+			}
+			else
+			{
+				fn00fa7a()
+				if (D1.s16 < 0)
+				{
+					if (shadow.WallLatch == 1)
+					{
+						//make sure the player is rolling: the update function used depends on flags
+						char.flags &= ~char.flag.ROLLING
+						char.state = char.state.ROLLING
+						//also convert it in a jump action
+						char.jumping = true
+						//boosting removes the rolling status
+						playSound(SFX_GRAB)
+						if (char.velocity.x > 0)
+						{
+							shadow.WallLatch = 2 //latched right
+						}
+						else
+						{
+							shadow.WallLatch = 3 //latched left
+						}
+					}
+					char.position.x.u16 += D1.u16
+					char.velocity.x = 0
+					no_collision = false
+				}
+			}
+		}
+		else
+		{
+			if (someFlag || char.velocity.y >= 0)
+			{
+				Character.CheckFloorCollision()
+				if (D1.s16 < 0)
+				{
+					char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+					char.rotation = D3.u8
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+				}
+			}
+		}
+	}
+	else if (D0.u8 == 0x80)
+	{
+		//mostly upward direction
+		fn00fd9a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 -= D1.u16
+			char.velocity.x = 0
+			no_collision = false
+		}
+
+		fn00fa7a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 += D1.u16
+			char.velocity.x = 0
+			no_collision = false
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			if (global.inv_gravity)
+				D1.s16 = -D1.s16
+
+			char.position.y.u16 -= D1.u16
+			if (((D3.u8 + 0x20) & 0x40) == 0)
+			{
+				char.velocity.y = 0
+			}
+			else
+			{
+				char.rotation = D3.u8
+				Character.LandingOnGround()
+
+				char.groundspeed = char.velocity.y
+				if (D3.s8 < 0)
+					char.groundspeed = -char.groundspeed
+			}
+		}
+	}
+	else 	// (D0.u8 == 0xc0)
+	{
+		//mostly right direction
+		fn00fa7a()
+		if (D1.s16 < 0)
+		{
+			if (shadow.WallLatch == 1)
+			{
+				//make sure the player is rolling: the update function used depends on flags
+				char.flags &= ~char.flag.ROLLING
+				char.state = char.state.ROLLING
+				//also convert it in a jump action
+				char.jumping = true
+				//boosting removes the rolling status
+				playSound(SFX_GRAB)
+				if (char.velocity.x > 0)
+				{
+					shadow.WallLatch = 2 //latched right
+				}
+				else
+				{
+					shadow.WallLatch = 3 //latched left
+				}
+			}
+			char.position.x.u16 += D1.s16
+			char.velocity.x = 0
+			char.groundspeed = char.velocity.y
+			no_collision = false
+		}
+
+		Character.CheckCeilingCollision()
+		if (D1.s16 < 0)
+		{
+			char.position.y.u16 -= global.inv_gravity ? -D1.s16 : D1.s16
+			char.velocity.y = max(char.velocity.y, 0)
+		}
+		else
+		{
+			if (someFlag || char.velocity.y >= 0)
+			{
+				Character.CheckFloorCollision()
+				if (D1.s16 < 0)
+				{
+					char.position.y.u16 += global.inv_gravity ? -D1.s16 : D1.s16
+					char.rotation = D3.u8
+					char.velocity.y = 0
+					char.groundspeed = char.velocity.x
+					Character.LandingOnGround()
+				}
+			}
+		}
+	}
+
+	//should shadow fall from a wall?
+	if (shadow.CollisionCheck == true && shadow.WallLatch > 1 && no_collision == true)
+	{
+		//falling from a wall counts as all skills used
+		char.double_jump_state = 2
+		shadow.WallLatch = 0
+		char.velocity.y = 0x10
+		char.velocity.x = 0
+		shadow.CollisionCheck = false
+	}
+}
+
+//# address-hook(0x012172) end(0x012178)
+//# address-hook(0x01560c) end(0x01569a)
+function void Character.LandingOnGround()
+{
+	if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.LandingOnGround()
+		return
+	}
+
+	if (char.spindash == 0)
+	{
+	#if STANDALONE
+		// Check if transforming, otherwise character gets stuck if transforming right when touching the ground
+		bool transforming = (char.character == CHARACTER_TAILS) ? (char.state == char.state.TAILS_TRANSFORM) : (char.state == char.state.TRANSFORMING)
+		if (transforming)
+		{
+			char.flags &= ~char.flag.ROLLING	// Needed so that "Character.LandingOnGroundStandUp()" does not change the state either
+		}
+		else
+	#endif
+		{
+			char.state = char.state.RUNNING
+		}
+
+		Character.LandingOnGroundStandUp()
+	}
+
+	Character.LandingOnGroundResetState()
+}
+
+//# address-hook(0x01217e) end(0x012230)
+//# address-hook(0x015618)
+//# address-hook(0x017b24) end(0x017bb4)
+function void Character.LandingOnGroundNoSpindash()
+{
+if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.Character.LandingOnGroundNoSpindash()
+		return
+	}
+	Character.LandingOnGroundStandUp()
+	Character.LandingOnGroundResetState()
+}
+
+//Fix for balloons popping on a wall latching shadow (EG: DA GARDEN)
+function void fn0317ae()
+{
+    if  (!competition_mode.active && (XtraChar != 3 || char.character != CHARACTER_SONIC) || competition_mode.active)
+	{
+		base.fn0317ae()
+		return
+	}
+	
+	objA1.velocity.y = -0x700
+	objA1.flags2a |= char.flag.IN_AIR
+	objA1.flags2a &= ~(char.flag.CONTROL_LOCK | char.flag.PUSHING)
+	u8[A1 + 0x2e] = 0
+
+#if STANDALONE
+	// Check for active dropdash
+	if (u8[A1 + 0x38] != CHARACTER_SONIC || u8[A1 + 0x20] != char.state.SONIC_DROPDASH)
+#endif
+	{
+		// Reset the "char.jumping" to make the character bounce off ignoring the velocity-y limit
+		u8[A1 + 0x40] = 0
+	}
+
+	objA0.state |= 0x01
+	if (s8[A0 + 0x2c] < 0)
+	{
+		objA1.velocity.y = -0x380
+		if (level.water_present != 0 && u8[A0 + 0x34] == 0)
+		{
+			A2 = 0x03185a
+			fn03181e()
+			fn03181e()
+			fn03181e()
+			fn03181e()
+			objA1.position.x.u16 = objA0.position.x.u16
+			objA1.position.y.u16 = objA0.position.y.u16
+		}
+	}
+
+	if (u8[A0 + 0x34] == 0)
+	{
+		playSound(0x77)
+		u8[A0 + 0x34] = 0x01
+		
+		shadow.WallLatch = false
+	}
+}
+
+//AUDIO EFFECTS
+//Audio.playAudio("namehere", AudioContext.CONTEXT_SOUND)
+//	"shadowairdash":      { "File": "AirDash.ogg", "Type": "Sound"},
+//	"shadowboost":      { "File": "Boost.ogg", "Type": "Sound"},
+//	"shadowhoming":      { "File": "Homing.ogg", "Type": "Sound"},
+//	"shadowlockon":      { "File": "LockOn.ogg", "Type": "Sound"},
+//	"shadowland":      { "File": "StompLand.ogg", "Type": "Sound"},
+//	"shadowstomp":      { "File": "StompStart.ogg", "Type": "Sound"}
+
+//----------------------
+//BOOST BAR RECHARGE/LOSS
+//----------------------
+//other than at the start, other things should recharge the bar: rings, enemies, bigrings, invincibility
+//RINGS
+
+//Level rings give 16 more points than a fallen ring
+//# address-hook(0x00eae6) end(0x00eaea)
+function void CollectLevelRing()
+{
+	if (XtraChar == 3)
+	{
+		shadow.BoostPool += 16
+	}
+	//continue with the base function
+	base.CollectLevelRing()
+	return
+}
+
+//Any ring should give a minimum amount of points
+//# address-hook(0x01a596) end(0x01a5e8)
+function void CollectRing()
+{
+	if (XtraChar == 3)
+	{
+		if (u8[0xffffb02b] & char.bonus.SHIELD_LIGHTNING) //moving rings taken with the shield should still give 20 points
+		{
+			shadow.BoostPool = min(shadow.BoostPool+20, 1800)
+		}
+		else
+			shadow.BoostPool = min(shadow.BoostPool+4, 1800)
+	}
+	//continue with the base function
+	base.CollectRing()
+	return
+}
+
+//ten rings from monitiors
+//# address-hook(0x01d8ac) end(0x01d906)
+function void ItemEffect.ApplyExtraRings()
+{
+	if (XtraChar == 3)
+	{
+		shadow.BoostPool = min(shadow.BoostPool+200, 1800)
+	}
+	base.ItemEffect.ApplyExtraRings()
+}
+
+//bigrings fully recharge the boost bar
+//# address-hook(0x061794) end(0x0617b2)
+function void GiantRing.Grant50Rings()
+{
+	//I need to script using A0 here
+	push(A0)
+	A0 = 0xffffb000 // point at player 1, thanks	
+	if (XtraChar == 3)
+	{
+		shadow.BoostPool = 1800
+	}
+	A0 = pop()
+	
+	//continue with the base function
+	base.GiantRing.Grant50Rings()
+	return
+}
+
+function void Enemy.addScore(u32 enemyAddress, u32 scoreLookup)
+{
+    if (XtraChar != 3)
+	{
+		base.Enemy.addScore(enemyAddress, scoreLookup)
+		return
+	}
+	
+	//manage shadow's recharge
+	u16 counter = min(score.bonus_counter, 6)
+	score.bonus_counter += 2
+
+	u16 score
+	if (score.bonus_counter < 0x20)
+	{
+		u16[enemyAddress + 0x3e] = counter
+		score = u16[scoreLookup + counter]
+		if (score = 100)
+		{
+			shadow.BoostPool = min(shadow.BoostPool+25, 1800)
+		}
+		else if (score = 200)
+		{
+			shadow.BoostPool = min(shadow.BoostPool+50, 1800)
+		}
+		else if (score = 500)
+		{
+			shadow.BoostPool = min(shadow.BoostPool+100, 1800)
+		}
+		else if (score = 1000)
+		{
+			shadow.BoostPool = min(shadow.BoostPool+200, 1800)
+		}
+	}
+	else
+	{
+		u16[enemyAddress + 0x3e] = 10
+		score = 1000
+		shadow.BoostPool = min(shadow.BoostPool+200, 1800)
+	}
+	addScore(score)
+
+#if STANDALONE
+	// For achievement, check if lightning shield hit the water in this very frame
+	//  -> We're assuming that any kill in this frame is a result of the lightning shield
+	if (level.framecounter > 0 && level.framecounter == Game.getAchievementValue(ACHIEVEMENT_ELECTROCUTE))
+	{
+		Game.setAchievementComplete(ACHIEVEMENT_ELECTROCUTE)
+	}
+#endif
+}
+
+////Invincibility recharges the boost bar too by 3 per frame  // NAH -- THIS IS TOO OP
+//function void Character.updateBonusEffects()
+//{
+//	if (XtraChar == 3)
+//	{
+//		if (((char.bonus_effect & char.bonus.INVINCIBLE) && char.invinc.countdown > 0)||super.active)
+//		{
+//			shadow.BoostPool = min(shadow.BoostPool+3, 1800)
+//		}
+//	}
+//	
+//	base.Character.updateBonusEffects()
+//	return
+//}
+
+//shadow loses 1/3 of bar if hurt
+//# address-hook(0x010294) end(0x010364)
+function void Character.GettingHurt()
+{
+	if (XtraChar != 3)
+	{
+		base.Character.GettingHurt()
+		return
+	}
+	
+	bool canLoseShield = true	// Usually true, gets false e.g. for 2nd player Tails
+	bool isProtectedByObject = ((char.protection_flag & 0x80) != 0)
+	bool spilledRings = false
+
+	u16 rings = ring_counter
+	//Tails is checked here ANYWAY in SONIC_AND_TAILS mode...
+	if (A0 != 0xffffb000)
+	{
+		// It's the second player
+		if (competition_mode.active)
+		{
+			rings = u16[0xfffffed0]
+		}
+		else
+		{
+			canLoseShield = false
+		}
+	}
+
+	if (canLoseShield && (char.bonus_effect & char.bonus.ANY_SHIELD) == 0)
+	{
+		if (!isProtectedByObject)
+		{
+			// No more rings?
+			if (rings == 0)
+			{
+				D0 = getSoundIdByObstacleAddress(u32[A2])
+				Character.Die_internal()
+				return
+			}
+
+			// Create ring spill object
+			if (allocDynamicObjectStd())
+			{
+				objA1.update_address = 0x01a64a
+				objA1.position.x.u16 = char.position.x.u16
+				objA1.position.y.u16 = char.position.y.u16
+				u16[A1 + 0x3e] = A0.u16
+			}
+			spilledRings = true
+			shadow.BoostPool = (shadow.BoostPool/3) *2
+			// Should be unnecessary, but make sure all shield flags are cleared
+			char.bonus_effect &= 0x8e
+		}
+	}
+	else
+	{
+	#if STANDALONE
+		// When using e.g. the MGZ spinning top, do not lose your shield
+		if (!isProtectedByObject)
+	#endif
+		{
+			// Lose shield
+			char.bonus_effect &= 0x8e
+		}
+	}
+
+	char.base_state = 0x04
+	Character.LandingOnGroundNoSpindash()
+	char.flags |= char.flag.IN_AIR
+	if (char.flags & char.flag.UNDERWATER)
+	{
+		char.velocity.x = -0x100
+		char.velocity.y = -0x200
+	}
+	else
+	{
+		char.velocity.x = -0x200
+		char.velocity.y = -0x400
+	}
+	if (char.position.x.u16 >= u16[A2 + 0x10])
+	{
+		char.velocity.x = -char.velocity.x
+	}
+
+	char.groundspeed = 0
+	char.state = char.state.GOT_HURT
+	char.invuln.countdown = 120
+
+#if STANDALONE
+	if (XtraChar == 3)
+	{
+		// Reset drop dash
+		sonic.dropdash_counter = 0
+	}
+
+	// In standalone, don't play the sound when rings got spilled
+	//  -> This check is not necessary in emulation, as the ring spill sound kills this one (only one of both can be played)
+	if (!spilledRings)
+#endif
+	{
+		playSound(getSoundIdByObstacleAddress(u32[A2]))
+	}
+	D0 = 0xffffffff
+}
+
+//----------------------
+//WALL AND ROCK BREAKING WITH BOOST
+//----------------------
+//boosting should break rocks like the fire shield
+//# address-hook(0x01fd08) end(0x01ff1a)
+function void fn01fd08()
+{
+	//I'm unsure A1 already has the player1 in, so better safe than sorry
+	A1 = 0xffffb000
+	if (XtraChar != 3)
+	{
+		base.fn01fd08()
+		return
+	}	
+	
+	u16[A0 + 0x30] = u16[0xffffb018]
+	u16[A0 + 0x36] = u16[0xffffb062]
+
+	D1 = objA0.box_size.x + 11
+	D2 = objA0.box_size.y
+	D3.u16 = D2.u16 + 1
+	D4.u16 = objA0.position.x.u16
+	fn01dc56()
+
+	D6 = (D6 << 16) + (D6 >> 16)
+	if (D6.u16 & 0x03)
+	{
+		bool canBreakWall = false
+
+		A1 = 0xffffb000
+		D1.u16 = u16[A0 + 0x30]
+		if (D6.u16 & 0x01)
+		{
+			if (u8[A1 + 0x38] == CHARACTER_KNUCKLES)
+			{
+				// Knuckles can break all walls
+				canBreakWall = true
+			}
+			else
+			{
+				if ((objA0.subtype2c & 0x80) == 0)	// Special Knuckles-only wall?
+				{
+					if (super.active||shadow.isBoosting)
+					{
+						// Super form breaks walls even when going slow
+						// boosting breaks walls too
+						canBreakWall = true
+					}
+					else if ((objA0.flags2a & 0x20) || (u8[A1 + 0x2b] & char.bonus.SHIELD_FIRE))
+					{
+						// Normal Sonic and Tails need to quickly roll into a wall to break it (this includes the fire shield attack)
+						canBreakWall = (objA1.state == char.state.ROLLING && abs(D1.s16) >= 0x480)
+					}
+				}
+			}
+
+			if (canBreakWall)
+			{
+				objA0.flags2a &= ~0x20
+				Rocks.BreakWall()
+
+				if (objA0.flags2a & 0x40)
+				{
+					// Check for second character
+					A1 = 0xffffb04a
+					if (u8[A1 + 0x38] == CHARACTER_KNUCKLES || objA1.state == char.state.ROLLING)
+					{
+						objA1.velocity.x = u16[A0 + 0x36]
+						u16[A1 + 0x1c] = objA1.velocity.x
+						objA0.flags2a &= ~0x40
+						objA1.flags2a &= ~char.flag.PUSHING
+					}
+				}
+			}
+		}
+
+		if (!canBreakWall)
+		{
+			// Give second character a try
+			A1 = 0xffffb04a
+			D1.u16 = u16[A0 + 0x36]
+
+			if (objA0.flags2a & 0x40)
+			{
+				if (u8[A1 + 0x38] == CHARACTER_KNUCKLES)
+				{
+					// Knuckles can break all walls
+					canBreakWall = true
+				}
+				else
+				{
+					if ((objA0.subtype2c & 0x80) == 0)	// Special Knuckles-only wall?
+					{
+						// Normal Sonic and Tails need to quickly roll into a wall to break it (this includes the fire shield attack)
+						canBreakWall = (objA1.state == char.state.ROLLING && abs(D1.s16) >= 0x480)
+					}
+				}
+			}
+
+			if (canBreakWall)
+			{
+				objA0.flags2a &= ~0x40
+				Rocks.BreakWall()
+				return
+			}
+		}
+	}
+
+	if (competition_mode.active == 0)
+	{
+		if (checkForUnloadObjectAtPosition(objA0.countdown_value))
+			return
+	}
+	DrawObject()
+}
+
+//walls -- same as above
+//# address-hook(0x021568) end(0x021690)
+function void fn021568()
+{
+	A1 = 0xffffb000
+    if (XtraChar != 3)
+	{
+		base.fn021568()
+		return
+	}
+	
+	u16[A0 + 0x30] = u16[0xffffb018]
+	objA0.value32 = u16[0xffffb062]
+
+	D1 = objA0.box_size.x + 11
+	D2 = objA0.box_size.y
+	D3.u16 = D2.u16 + 1
+	D4.u16 = objA0.position.x.u16
+	fn01dc56()
+
+	if (u8[A0 + 0x2c] & 0x80)
+	{
+		if (level.trigger00 == 0)
+		{
+			DrawOrUnloadObject()
+		}
+		else
+		{
+			UnloadObject()
+		}
+		return
+	}
+
+	D6 = (D6 << 16) + (D6 >> 16)
+	D6.u16 &= 0x03
+	if (D6.u16 == 0)
+	{
+		DrawOrUnloadObject()
+		return
+	}
+
+	A1 = 0xffffb000
+	D1.u16 = u16[A0 + 0x30]
+	if (D6.u16 & 0x01)
+	{
+		bool canBreakWall = false
+		if (super.active || u8[A1 + 0x38] == CHARACTER_KNUCKLES || shadow.isBoosting)
+		{
+			// Super/Hyper forms can break walls, and Knuckles can
+			canBreakWall = true
+		}
+		else
+		{
+			// Does this wall allow for rolling into the wall? Otherwise the fire shield will do
+			if ((objA0.flags2a & 0x20) || (u8[A1 + 0x2b] & char.bonus.SHIELD_FIRE))
+			{
+				canBreakWall = (objA1.state == char.state.ROLLING && abs(D1.s16) >= 0x0480)
+			}
+		}
+
+		if (canBreakWall)
+		{
+			objA0.flags2a &= ~0x20
+			fn02165a()
+
+			A1 = 0xffffb04a
+			if ((objA0.flags2a & 0x40) && objA1.state == char.state.ROLLING)
+			{
+				objA0.flags2a &= ~0x40
+				objA1.velocity.x = objA0.value32
+				u16[A1 + 0x1c] = objA1.velocity.x
+				objA1.flags2a &= ~char.flag.PUSHING
+			}
+
+			DrawOrUnloadObject()
+			return
+		}
+	}
+
+	A1 = 0xffffb04a
+	D1.u16 = objA0.value32
+	if ((objA0.flags2a & 0x40) && objA1.state == char.state.ROLLING && abs(D1.s16) >= 0x0480)
+	{
+		objA0.flags2a &= ~0x40
+		fn02165a()
+
+	#if STANDALONE
+		if (Game.getSetting(SETTING_FIX_GLITCHES) >= 2)
+		{
+			// Prevent slope glitch here for player 1
+			if ((u8[0xffffb02a] & char.flag.ON_OBJECT) && u16[0xffffb042] == A0.u16)
+			{
+				u8[0xffffb02a] &= ~char.flag.ON_OBJECT
+				u8[0xffffb02a] |= char.flag.IN_AIR
+			}
+		}
+	#endif
+	}
+#if STANDALONE
+	else if (global.zone == 0x02)
+	{
+		// In MGZ, make all normal breakable walls also breakable by spinning top
+		D6 = (D6 << 16) + (D6 >> 16)
+		fn021758()
+	}
+#endif
+	else
+	{
+		DrawOrUnloadObject()
+	}
+}
+//----------------------
+//BOOST AND SPRINGS
+//----------------------
+//vertical and diagonal springs should disable boosting
+//horizontal are fine
+//# address-hook(0x022f98) end(0x02304a)
+function void SpringVertical.ApplyToCharacter()
+{
+	//OBJA1 IS A CHARACTER HERE, I NEED TO SEE IF IT'S PLAYER 1 AND SHADOW	
+	//note: char.character = u8[A0 + 0x38]
+	if (A1 == 0xffffb000 && XtraChar == 3)
+	{
+		shadow.isBoosting = false
+		char.flags &= ~char.flag.CONTROL_LOCK
+		char.double_jump_state = 2
+	}
+	//continue with the base function
+	base.SpringVertical.ApplyToCharacter()	
+	return
+}
+
+//Prevent insta shield property from triggering on shadow.
+//# address-hook(0x00fe8e) end(0x00ff04)
+function void Character.CheckCollisionsWithDynamicObjects()
+{
+	if  ((!competition_mode.active) && (XtraChar == 3 || competition_mode.active && char.character == 5))
+	{
+		SonicUpdateRingCollection()
+		UpdateShieldDeflecting()
+		D5 = char.hitbox_extends.y - 3
+		D2 = char.position.x.u16 - 8
+		D3 = char.position.y.u16 - D5.u16
+		D4 = 16
+		D5 *= 2
+		Character.CheckCollisionsWithDynamicObjects_partial()
+	}
+	else
+		base.Character.CheckCollisionsWithDynamicObjects()
+	return
+}
+
+//CNZ POLES (I HATE THEM!)
+//Left To Right Pole
+//# address-hook(0x033392) end(0x0335a6)
+function void fn033392()
+{
+	if (A1 != 0xffffb000 || XtraChar != 3)
+	{
+		base.fn033392()
+		return
+	}
+	
+	D0 = 0
+	if ((objA0.flags2a & (1 << D6.u8)) == 0)
+	{
+		if ((u8[A1 + 0x2a] & 0x08) == 0)
+		{
+			D0.u16 = objA1.position.x.u16 - s8[A1 + 0x1f] - objA0.position.x.u16 + 0x40
+			if (D0.u16 < 0xa0)
+			{
+				D0.u16 -= 0x61
+				D1.u16 = objA1.position.y.u16 + u8[A1 + 0x1e] - objA0.position.y.u16 - D0.u16
+				if (D1.u16 < 0x10 && u8[A1 + 0x2e] == 0 && debug_mode.state == 0)
+				{
+					if (u8[A1 + 0x2a] & 0x02 && objA1.velocity.y < 0)
+						return
+
+					u32[A2] = u32[A1 + 0x10]
+					D0.u16 = u16[A2] - objA0.position.x.u16 + 0x40
+					u16[A2] = D0.u16
+					D0.u16 -= 0x18
+					u16[A2 + 0x04] = (D0.u16 < 0x70) ? 1 : 0
+
+					fn0337d8()
+					s8[A1 + 0x26] = 0x20
+					u8[A1 + 0x2d] = 0x02
+				}
+			}
+		}
+		else
+		{
+			D0.u16 = objA1.position.x.u16 - s8[A1 + 0x1f] - objA0.position.x.u16 + 0x30
+			if (D0.u16 < 0x80)
+			{
+				D0.u16 -= 0x51
+				D1.u16 = objA1.position.y.u16 + u8[A1 + 0x1e] - objA0.position.y.u16 - D0.u16
+				if (D1.u16 < 0x10 && u8[A1 + 0x2e] == 0)
+				{
+					if (u8[A1 + 0x2a] & 0x02 && objA1.velocity.y < 0)
+						return
+
+					A3 = 0xffff0000 + u16[A1 + 0x42]
+					if (u32[A3] == 0x033376)
+					{
+						u32[A2] = u32[A1 + 0x10]
+						D0.u16 = u16[A2] - objA0.position.x.u16 + 0x40
+						u16[A2] = D0.u16
+						D0.u16 -= 0x20
+						u16[A2 + 0x04] = (D0.u16 < 0x60) ? 1 : 0
+
+						fn0337d8()
+						s8[A1 + 0x26] = 0x20
+						u8[A1 + 0x2d] = 0x02
+					}
+				}
+			}
+		}
+		return
+	}
+
+	if (u16[A2 + 0x04] == 0 && abs(s16[A1 + 0x1c]) < 0x0118)
+	{
+		u8[A1 + 0x2a] |= 0x02
+	}
+	else if ((u8[A1 + 0x2a] & 0x02) == 0)
+	{
+		shadow.rtlcnzbar = false
+		D0.s32 = objA1.velocity.x
+		D0 <<= 6
+		D1 = D0
+		D0 *= 3
+		u32[A2] += D0
+
+		D0.u16 = u16[A2] - s8[A1 + 0x1f]
+		if (D0.u16 < 0xa0)
+		{
+			if (u8[A1 + 0x2a] & 0x08)
+			{
+				D2.u16 = D0.u16
+				D0.u8 -= 0x10
+				if (D0.s8 >= -0x10 && D0.s8 < 0)
+				{
+					u16[A2 + 0x04] = 0
+					D0 = 0
+				}
+				if (D0.s8 < 0)
+				{
+					u16[A2 + 0x04] = 0
+					D0.u16 = 0x80
+				}
+
+				u16[A1 + 0x0a] &= 0x7fff
+				if (D0.u8 < 0x34)
+				{
+					u16[A1 + 0x0a] |= 0x8000
+				}
+				if (u16[A2 + 0x04] != 0)
+				{
+					D0 = 0
+				}
+
+				D0.u16 *= 2
+				u8[A1 + 0x27] = D0.u8
+				LookupSinCos()
+				D4.u16 = D1.u16
+				D1.s16 >>= 4
+				D3.u16 = D1.u16
+				D1.u16 += D2.u16 + objA0.position.x.u16 - 0x50
+
+				D0 = u8[A1 + 0x1f]
+				D0.s32 = s32(D0.s16) * D4.s16
+				D0.s16 >>= 8
+				D1.u16 += D0.u16
+				objA1.position.x.u16 = D1.u16
+
+				D0.u16 = D2.u16 - 0x51
+				D2.u16 = objA0.position.y.u16 - D3.u16 + D0.u16
+				D1 = u8[A1 + 0x1e]
+				D1.s32 = s32(D1.s16) * D4.s16
+				D1.s16 >>= 8
+				D2.u16 -= D1.u16
+				objA1.position.y.u16 = D2.u16
+			}
+			return
+		}
+	}
+
+	u8[A1 + 0x2a] &= ~0x08
+	objA0.flags2a &= ~(1 << D6.u8)
+	u8[A1 + 0x30] = 0
+	u8[A1 + 0x31] = 0x04
+	u16[A1 + 0x0a] &= 0x7fff
+}
+
+//Right To Left CNZ POLE
+//# address-hook(0x0335c4) end(0x0337d6)
+function void fn0335c4()
+{
+	if (A1 != 0xffffb000 || XtraChar != 3)
+	{
+		base.fn0335c4()
+		return
+	}
+	D0 = 0
+	if ((objA0.flags2a & (1 << D6.u8)) == 0)
+	{
+		if ((u8[A1 + 0x2a] & 0x08) == 0)
+		{
+			D0.u16 = objA1.position.x.u16 + s8[A1 + 0x1f] - objA0.position.x.u16 + 0x60
+			if (D0.u16 < 0xa0)
+			{
+				D0.u16 -= 0x3e
+				D1.u16 = objA1.position.y.u16 + u8[A1 + 0x1e] - objA0.position.y.u16 + D0.u16
+				if (D1.u16 < 0x10 && u8[A1 + 0x2e] == 0 && debug_mode.state == 0)
+				{
+					if (u8[A1 + 0x2a] & 0x02 && objA1.velocity.y < 0)
+						return
+
+					u32[A2] = u32[A1 + 0x10]
+					D0.u16 = u16[A2] - objA0.position.x.u16 + 0x60
+					u16[A2] = D0.u16
+					D0.u16 -= 0x18
+					u16[A2 + 0x04] = (D0.u16 < 0x70) ? 1 : 0
+
+					fn0337d8()
+					s8[A1 + 0x26] = -0x20
+					u8[A1 + 0x2d] = 0x03
+				}
+			}
+		}
+		else
+		{			
+			D0.u16 = objA1.position.x.u16 + s8[A1 + 0x1f] - objA0.position.x.u16 + 0x50
+			if (D0.u16 < 0x80)
+			{
+				D0.u16 -= 0x2e
+				D1.u16 = objA1.position.y.u16 + u8[A1 + 0x1e] - objA0.position.y.u16 + D0.u16
+				if (D1.u16 < 0x10 && u8[A1 + 0x2e] == 0)
+				{
+					if (u8[A1 + 0x2a] & 0x02 && objA1.velocity.y < 0)
+						return
+
+					A3 = 0xffff0000 + u16[A1 + 0x42]
+					if (u32[A3] == 0x0335a8)
+					{
+						u32[A2] = u32[A1 + 0x10]
+						D0.u16 = u16[A2] - objA0.position.x.u16 + 0x60
+						u16[A2] = D0.u16
+						D0.u16 -= 0x20
+						u16[A2 + 0x04] = (D0.u16 < 0x60) ? 1 : 0
+
+						fn0337d8()
+						s8[A1 + 0x26] = -0x20
+						u8[A1 + 0x2d] = 0x03
+					}
+				}
+			}
+		}
+		return
+	}
+
+	if (u16[A2 + 0x04] == 0 && abs(s16[A1 + 0x1c]) < 0x0118)
+	{
+		u8[A1 + 0x2a] |= 0x02
+	}
+	else if ((u8[A1 + 0x2a] & 0x02) == 0)
+	{
+		shadow.rtlcnzbar = true
+		D0.s32 = objA1.velocity.x
+		D0 <<= 6
+		D1 = D0
+		D0 *= 3
+		u32[A2] += D0
+
+		D0.u16 = u16[A2] + s8[A1 + 0x1f]
+		if (D0.u16 < 0xa0)
+		{
+			if (u8[A1 + 0x2a] & 0x08)
+			{
+				D2.u16 = D0.u16
+				D0.u8 -= 0x10
+				if (D0.s8 >= -0x10 && D0.s8 < 0)
+				{
+					u16[A2 + 0x04] = 0
+					D0 = 0
+				}
+				if (D0.s8 < 0)
+				{
+					u16[A2 + 0x04] = 0
+					D0.u16 = 0x80
+				}
+
+				u16[A1 + 0x0a] &= 0x7fff
+				if (D0.u8 >= 0x4c)
+				{
+					u16[A1 + 0x0a] |= 0x8000
+				}
+				if (u16[A2 + 0x04] != 0)
+				{
+					D0 = 0
+				}
+
+				D0.s8 = -D0.s8
+				D0.u16 *= 2
+				u8[A1 + 0x27] = D0.u8
+				LookupSinCos()
+				D4.u16 = D1.u16
+				D1.s16 >>= 4
+				D3.u16 = D1.u16
+				D1.u16 = D2.u16 - D1.u16 + objA0.position.x.u16 - 0x50
+
+				D0 = u8[A1 + 0x1f]
+				D0.s32 = s32(D0.s16) * D4.s16
+				D0.s16 >>= 8
+				D1.u16 -= D0.u16
+				objA1.position.x.u16 = D1.u16
+
+				D0.u16 = D2.u16 - 0x4e
+				D2.u16 = objA0.position.y.u16 - D3.u16 - D0.u16
+				D1 = u8[A1 + 0x1e]
+				D1.s32 = s32(D1.s16) * D4.s16
+				D1.s16 >>= 8
+				D2.u16 -= D1.u16
+				objA1.position.y.u16 = D2.u16
+			}
+			return
+		}
+	}
+
+	u8[A1 + 0x2a] &= ~0x08
+	objA0.flags2a &= ~(1 << D6.u8)
+	u8[A1 + 0x30] = 0
+	u8[A1 + 0x31] = 0x04
+	u16[A1 + 0x0a] &= 0x7fff
+}
+
+//CNZ FANS BREAK THE BOOST AND WALL LATCH
+//# address-hook(0x031e96) end(0x031f2e)
+function void fn031e96()
+{
+#if STANDALONE
+	if (debug_mode.state != 0)
+		return
+#endif
+
+	if (A1 != 0xffffb000 || XtraChar != 3)
+	{
+		base.fn031e96()
+		return
+	}
+
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16 + objA0.value32
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + u8[0xfffffe84] + u16[A0 + 0x36]
+	if (dx < u16[A0 + 0x34] && dy < u16[A0 + 0x38])
+	{
+	#if STANDALONE
+		// Also consider the "hurt" state
+		if (u8[A1 + 0x05] <= 0x04 && u8[A1 + 0x2e] == 0)
+		{
+			if (u8[A1 + 0x05] == 0x04)
+				u8[A1 + 0x05] = 0x02
+	#else
+		if (u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+		{
+	#endif
+			//break the boost and wall latch
+			shadow.isBoosting = false
+			char.flags &= ~char.flag.CONTROL_LOCK
+			shadow.WallLatch = 0
+			char.double_jump_state = 2
+			
+			D1.u16 = dy - u16[A0 + 0x36]
+			if (D1.s16 >= 0)
+			{
+				D1.u16 = (-1 - D1.s16) * 2
+			}
+
+			D1.u16 += u16[A0 + 0x36]
+			D1.s16 = -D1.s16
+			D1.s16 >>= 4
+			objA1.position.y.u16 += D1.u16
+			objA1.flags2a |= char.flag.IN_AIR
+			objA1.flags2a &= ~char.flag.CONTROL_LOCK
+			objA1.velocity.y = 0
+			u8[A1 + 0x2f] = 0
+			u8[A1 + 0x40] = 0
+
+			D6 = 1
+			u16[A1 + 0x1c] = 1
+		#if STANDALONE
+			if (u8[A1 + 0x27] == 0 || objA1.state == char.state.ROLLING)	// Prevent a rare glitch that makes Sonic roll over the fans
+		#else
+			if (u8[A1 + 0x27] == 0)
+		#endif
+			{
+				objA1.state = char.state.RUNNING
+				u8[A1 + 0x27] = 1
+				u8[A1 + 0x30] = 0x7f
+				u8[A1 + 0x31] = 8
+
+			#if STANDALONE
+				// Fix for bug when Tails carries other player and gets caught by the fan
+				if (u8[A1 + 0x38] == CHARACTER_TAILS && tails.carrying)
+				{
+					u8[0xffffb02a] |= char.flag.IN_AIR
+					u8[0xffffb02e] = 0
+				}
+			#endif
+			}
+		}
+	}
+}
+
+//HCZ FANS - Same as CNZ
+//# address-hook(0x03077e) end(0x030832)
+function void fn03077e()
+{
+#if STANDALONE
+	if (debug_mode.state != 0)
+		return
+#endif
+
+	if (u8[A1 + 0x05] >= 0x04)
+		return
+
+	D0.u16 = objA1.position.x.u16 - objA0.position.x.u16 + 0x18
+	if (D0.u16 < 0x30)
+	{
+		//break the boost and wall latch
+		shadow.isBoosting = false
+		char.flags &= ~char.flag.CONTROL_LOCK
+		shadow.WallLatch = 0
+		char.double_jump_state = 2
+		D1 = objA1.position.y.u16 + u16[A0 + 0x36] + u8[0xfffffe84] - objA0.position.y.u16
+		if (D1.s16 >= 0 && D1.u16 < u16[A0 + 0x38])
+		{
+			if (u8[A1 + 0x2e] == 0)
+			{
+				D1.u16 -= u16[A0 + 0x36]
+				if (D1.s16 >= 0)
+				{
+					D1.u16 ^= 0xffff
+					D1.u16 *= 2
+				}
+
+				D1.u16 += u16[A0 + 0x36]
+				D1.s16 = (-D1.s16) >> 6
+				objA1.position.y.u16 += D1.u16
+				objA1.velocity.y = 0
+				objA1.flags2a |= char.flag.IN_AIR
+				objA1.flags2a &= ~char.flag.CONTROL_LOCK
+				u8[A1 + 0x2f] = 0
+				u8[A1 + 0x40] = 0
+
+				if (objA0.subtype2c & 0x40)
+				{
+					// Underwater fan
+					objA1.state = char.state.LIFTED
+				}
+				else if (u8[A1 + 0x27] == 0)
+				{
+					objA1.state = char.state.RUNNING
+					u8[A1 + 0x27] = 1
+					u8[A1 + 0x30] = 0x7f
+					u8[A1 + 0x31] = 0x08
+				}
+
+			#if STANDALONE
+				// Fix for bug when Tails carries other player and gets caught by the fan
+				if (u8[A1 + 0x38] == CHARACTER_TAILS && tails.carrying)
+				{
+					u8[0xffffb02a] |= char.flag.IN_AIR
+					u8[0xffffb02e] = 0
+				}
+			#endif
+			}
+
+			u16[A1 + 0x1c] = 1
+		}
+	}
+}
+
+//auto-roll sections should disable the boost for Shadow (eg AIZ2)
+//# address-hook(0x01e9b6) end(0x01e9e4)
+function void fn01e9b6()
+{
+	if (XtraChar != 3)
+	{
+		base.fn01e9b6()
+		return
+	}
+	//Auto roll sections must have the boost off or the player regains standing controls in pipes.
+	shadow.isBoosting = false		
+	shadow.ForceBoostOff = true
+	
+	if (u8[A1 + 0x2a] & char.flag.ROLLING)
+		return
+
+	objA1.position.y.u16 += 5
+	u8[A1 + 0x1e] = 14
+	u8[A1 + 0x1f] = 7
+	objA1.state = char.state.ROLLING
+	objA1.flags2a |= char.flag.ROLLING
+	playSound(0x3c)
+}
+
+//BOOST ON CNZ PADS --> turn off
+//# address-hook(0x0329b8) end(0x032a72)
+function void fn0329b8()
+{
+#if STANDALONE
+	if (debug_mode.state)
+		return
+#endif
+
+	D0.u16 = objA1.position.x.u16 - objA0.position.x.u16 + u16[A0 + 0x34]
+	D1.u16 = objA1.position.y.u16 - objA0.position.y.u16 + 0x14
+	if (D0.u16 < objA0.value32 && D1.u16 < 0x28 && u8[A1 + 0x05] < 0x04)
+	{
+		if(shadow.isBoosting)
+		{
+			shadow.isBoosting = false
+			shadow.airBoost = false
+			char.double_jump_state = 2
+		}
+		
+		if ((objA0.flags2a & char.flag.FACING_LEFT) == 0)
+		{
+			objA1.flags2a &= ~char.flag.FACING_LEFT
+			objA1.velocity.x = 0x800
+		}
+		else
+		{
+			objA1.flags2a |= char.flag.FACING_LEFT
+			objA1.velocity.x = -0x800
+		}
+
+		objA1.velocity.y = (objA0.flags2a & 0x02) ? 0x800 : -0x800
+		u16[A1 + 0x1c] = objA1.velocity.x
+		u16[A1 + 0x32] = 0x0f
+
+		if ((u8[A1 + 0x2a] & char.flag.ROLLING) == 0)
+		{
+			u8[A1 + 0x20] = 0
+		}
+
+		if (s8[A1 + 0x27] == 0)
+		{
+			u8[A1 + 0x20] = 0
+			s8[A1 + 0x27] = (u8[A1 + 0x2a] & char.flag.FACING_LEFT) ? -1 : 1
+			u8[A1 + 0x30] = 0x03
+			u8[A1 + 0x31] = 0x08
+		}
+
+		u8[A1 + 0x40] = 0
+		objA1.flags2a |= char.flag.IN_AIR
+		objA1.flags2a &= ~char.flag.CONTROL_LOCK
+		u8[A1 + 0x2a] &= ~0x20
+
+		playSound(0x7b)
+	}
+}
+
+
+//-------------
+//LEVEL FIXES
+//-------------
+
+//# address-hook(0x03943a) end(0x039470)
+function void fn03943a()// just in case someone decides to boost while snowboarding lol
+{
+    shadow.ForceBoostOff = true
+    shadow.Homing = 0
+    shadow.isBoosting = false
+	shadow.airBoost = false
+    char.double_jump_state = 2
+    base.fn03943a()
+}
+
+function void fn03969e()
+{
+    shadow.ForceBoostOff = true
+    shadow.Homing = 0
+    shadow.isBoosting = false
+	shadow.airBoost = false
+    char.double_jump_state = 2
+    base.fn03969e()
+}
+
+//ICE CAP START FIX
+//Shadow starts like Tails, so he needs appropriate fixes in level start
+//start location and animation has to be fixed for HCZ1 and ICZ1
+//PART 2
+//# address-hook(0x0067ee) end(0x0069b6)
+function void fn0067ee()
+{
+    base.fn0067ee()
+	return
+}
+
+//PART1
+//# address-hook(0x01be46) end(0x01bfae)
+function void SetupCharacterAtStartPosition()
+{
+	base.SetupCharacterAtStartPosition()
+	return
+}
+
+//ICE CAP SPAWN TAILS
+//I changed the starting point, tails needs a reset if he is with shadow
+//TAILS NEEDS A RESET IF PLAYING AS SHADOW AND TAILS in ICZ
+//# address-hook(0x013a10) end(0x013b24)
+function void Character.TailsAI.Init()
+{
+	base.Character.TailsAI.Init()
+	return
+}
+
+//-----------------------
+//HOMING ATTACK FUNCTIONS
+//-----------------------
+function void Shadow.SearchHomingTarget()
+{ 
+//iteration on objects based on Character.clearEnemiesOnScreen(u16 minY)
+//item identification checks details on the u8[A1 + 0x28] property value
+	
+	//soz2boss -- fake the head position or not based on the property value, don't lose the target
+	shadow.homingSOZ2offset = false
+	if (global.zone_act == 0x0801 && char.position.x.u16 > 0x4e88 && char.position.y.u16 > 0x064a)
+	{
+		push(A1)
+		A1 = shadow.target //this is eggman	
+		shadow.Homing = 0				
+		u32 dist = Shadow.checkObject(0xea)
+		D0 = u8[A1 + 0x28]		
+		if (dist < 0xea && ( D0 == 0x0f || objA1.base_state != 0x0c )) //full golem or hittable -> != 0x0c or d0 = 0x0f
+		{
+			shadow.Homing = 1
+			//check eggman's properties. Is he damage enabled if (D0 == 0x0f)
+			//I should check his base state instead objA0.base_state = 0x0c -> golem broken			
+			//D0 = u8[A1 + 0x28]
+			if (objA1.base_state != 0x0c) //the golem is in one piece, need offset applied
+			{
+				shadow.homingSOZ2offset = true
+			}		
+		}
+		A1 = pop()
+		return
+	}
+	
+	//if we are in the knux vs room, manage aim differently as the target is forced
+	if (global.zone_act == 0x1601 && char.position.x.u16 > 0x1050 && char.position.x.u16 < 0x1299)
+	{
+		push(A1) //backupA1 here too
+		A1 = shadow.target //this is knuckles
+		shadow.Homing = 1 //knux is in sight in the whole fight
+		//we still have to check if knux is in directional sight
+		if (control.player1.state & CONTROL_UP)
+		{
+			if 	(objA1.position.y.u16 >= char.position.y.u16)
+				shadow.Homing = 0
+				return
+		}
+		else if (control.player1.state & CONTROL_DOWN)
+		{
+			if 	(objA1.position.y.u16 <= char.position.y.u16)
+				shadow.Homing = 0 //out of target bounds
+		}
+		else if (char.flags & char.flag.FACING_LEFT)
+		{ //facing left? ignore if object is on the right
+			if 	(objA1.position.x.u16 >= char.position.x.u16)
+				shadow.Homing = 0 //out of target bounds
+		}
+		else
+		{ //facing right? ignore if object is on the left
+			if 	(objA1.position.x.u16 <= char.position.x.u16)
+				shadow.Homing = 0				
+		}
+		//restore A1
+		A1 = pop()
+		return
+	}
+
+	push(A4)
+	push(A3)
+	push(A2)
+	push(A1) //backup A1 too
+	
+	u32 shortestDistance = 0xea //234 - out of target search bounds (max range)
+	// A0 is shadow -> char. are working
+	// Go through all the objects to see if they are valid targets in range
+	A4 = 0xffffe380
+	D6.u16 = u16[A4]
+	A4 += 2
+	while (D6.u16 != 0)
+	{
+		A1 = 0xffff0000 + u16[A4]
+		A4 += 2
+		//check object type like a collision, use register for others
+		// u8[A1 + 0x28] values for the homing
+		//0x06	Robotnik in hcz, cnz, miniboss icz1, lbz1, all parts boss lrz1, eggrobos in ssz
+		//0x08	Nose of DEZ final boss
+		//0x09	Hit-able Mecha Sonic part
+		//0x0a	deflated pointdexter hcz, clamer cnz, blaster tank fbz
+		//0x0b	Monkey Dude, Rhinobot, caterkiller jr AIZ, Sparkle in cnz, orbinaut icz e lbz, ribot lbz, corkey laserbot lbz, talpa mhz, skorp, mouse fbz
+		//0x0c	cnz1 miniboss
+		//0x0d	cnz Batbot
+		//0x0f	Miniboss Aiz1, hcz1, mhz1, Robotnik mgz2, ICZ2, lbz1, lbz2-2 and 3, mhz2 (must disable when he is underground: x bt 3d48-3dc8 y gt 300 ), eggmobile soz2, robotnik hpz, mecha 1, 2, robotnik escaping in dez2
+		//0x10	miniboss mgz1, same as in lrz1
+		//0x11	radar object mhz2
+		//0x12	mgz bubbles without spikes on, armor of the digging drill in lrz1 (DISABLED)
+		//0x16	Robotnik Aiz2, Fbz2, weak point of final boss
+		//0x17	Head of Floating Badnik AIZ, bugernaut (fly) hcz, jem on masks in mgz, dragonfly mhz, butterfly mhz, red eye
+		//0x18	Robotnik lbz2-1, toxomister
+		//0x1a	turbo spiker (snail) hcz, hopper mgz, penguinator icz, flybot lbz, snail blaster lbz, chicken mhz, worm	lrz, spiker dez, pointy dez, fingers of the final boss
+		//0x1c	miniboss laser fbz2
+		//0x23	Bloominator
+		//0x46	Monitor
+		//0xc6	path changer lbz, door control lrz, fake inflatable mecha
+		//0xca	spiker (fake spikes) mgz
+		//0xd7	mega chopper (pirahna), Blastoid (cannons), jawz (the sharks) in hcz, cnz balloons and bumpers(DISABLED), head of soz1 miniboss, shield of the boss for dez2 (DISABLED), the alarms in lbz (DISABLE)
+		//0xd9	soz rock walker (cannot be hit: ignored used in homing)
+		// address 2946a is the alarm column in lbz, should be ignored
+		//Knux is not here, he is object with update_address 0x063de0
+		
+		u32 newdist = 0xea
+		D0 = u8[A1 + 0x28]
+		
+		//hittable enemies or enemy parts or monitors
+		//manage 0x0f boss in the ground in mhz2: ignore if x bt 3d48-3dc8 y gt 300
+		if ( D0 == 0x06)
+			newdist = Shadow.checkObject(shortestDistance)
+		else if (D0 == 0x0f)
+		{		
+			if (global.zone_act != 0x0701 || objA1.position.x.u16 > 0x3dc8 || objA1.position.y.u16 < 0x0300)
+				newdist = Shadow.checkObject(shortestDistance)
+		}
+		else if ( D0 >= 0x08 && D0 <= 0x11 && D0 != 0x0e)
+			newdist = Shadow.checkObject(shortestDistance)
+		else if ( D0 >= 0x16 && D0 <= 0x1c && D0 != 0x1b && D0 != 0x19)
+			newdist = Shadow.checkObject(shortestDistance)
+		else if ( D0 == 0x12 && global.zone == 0x02) //only in marble garden, not lava reef
+			newdist = Shadow.checkObject(shortestDistance)
+		else if ( D0 == 0x23 || D0 == 0x46 ||  D0 == 0xc6 || D0 == 0xca)
+			newdist = Shadow.checkObject(shortestDistance)
+		else if ( D0 == 0xd7 && global.zone != 0x0b && global.zone != 0x06) // not death egg or lbz
+		{
+			if (global.zone != 0x03||objA1.update_address == 0x031754) // In CNZ -> must be a balloon
+				newdist = Shadow.checkObject(shortestDistance)
+		}	
+		
+		if ( newdist < shortestDistance)
+		{
+			shortestDistance = newdist
+			shadow.target = A1
+		}
+		D6.u16 -= 2
+	}
+	
+	if (shortestDistance == 0xea) //there is no target
+	{
+		shadow.target = 0
+		shadow.Homing = 0
+		
+		 
+	}
+	else
+	{
+		A1 = shadow.target
+		shadow.Homing = 1
+		D0 = u8[A1 + 0x28]
+		//System.writeDisplayLine(stringformat("address: %02x", D0))
+		//System.writeDisplayLine(stringformat("address: %06x", objA1.update_address))
+	}
+	
+	A1 = pop() //restore A1 too
+	A2 = pop()
+	A3 = pop()
+	A4 = pop()
+}
+
+function u32 Shadow.checkObject(u32 shortestDistance)
+{
+//look for objects up or down if the player is presing it, or left and right based on what shadow is facing
+	if (control.player1.state & CONTROL_UP)
+	{
+		if 	(objA1.position.y.u16 >= char.position.y.u16)
+			return 0xea //out of target bounds
+	}
+	else if (control.player1.state & CONTROL_DOWN)
+	{
+		if 	(objA1.position.y.u16 <= char.position.y.u16)
+			return 0xea //out of target bounds
+	}
+	else if (char.flags & char.flag.FACING_LEFT)
+	{ //facing left? ignore if object is on the right
+		if 	(objA1.position.x.u16 >= char.position.x.u16)
+			return 0xea //out of target bounds
+	}
+	else
+	{ //facing right? ignore if object is on the left
+		if 	(objA1.position.x.u16 <= char.position.x.u16)
+			return 0xea
+	}	
+//determine distance from shadow to A1	
+	s32 xDiff = abs(objA1.position.x.u16 - char.position.x.u16)
+	s32 yDiff = abs(objA1.position.y.u16 - char.position.y.u16)
+	//distance must be reasonable: 120px vertical (0x78) and  200 horizontal (0xc8)
+	if (xDiff < 0xc8 && yDiff < 0x78)
+	{
+		xDiff = xDiff * xDiff
+		yDiff = yDiff * yDiff
+		u32 distance = sqrt(xDiff + yDiff)
+		if (shortestDistance == 0xea || distance < shortestDistance)
+		{
+			return distance		
+		}
+	}
+	return 0xea
+}
+
+//track knuckles in hpz too
+//he is not in the dynamic list, so we can't have him be tracked like the rest
+//# address-hook(0x063d1a) end(0x063dd2)
+function void fn063d1a()
+{
+    if (XtraChar == 3)
+	{
+		//force Knux as viable target!
+		//note: this is triggered as the boss fight room is reached
+		shadow.target = A0		
+	}
+
+	base.fn063d1a()
+	return
+}
+
+//Turn off knuckles as a target once defeated
+//# address-hook(0x064310) end(0x06434e)
+function void fn064310()
+{
+    if (XtraChar == 3)
+	{
+		//force Knux as viable target!
+		//note: this is triggered as the boss fight room is reached
+		shadow.target = 0
+	}
+
+	base.fn064310()
+	return
+}
+
+//apply angled speed to home on the target
+//has a timer stop the homing if the target cannot be reached for some reason
+//also checks if the target still exist (because tails might have killed it!)
+function void Shadow.isTargetStillValid()
+{
+	bool validTarget = false
+	
+	if (shadow.HomingTimer < 30)
+	{ //only if timer didn't run out		
+		if (global.zone_act == 0x1601 && char.position.x.u16 > 0x1050 && char.position.x.u16 < 0x1299)
+			validTarget = true
+		else if (global.zone_act == 0x0801 && char.position.x.u16 > 0x4e88 && char.position.y.u16 > 0x064a)
+		{
+			validTarget = true
+		}
+		if (!validTarget) 
+		{ //not the knuckles arena in hpz, nor the soz2 boss arena
+			push(A4)
+			push(A3)
+			push(A2)
+			push(A1) //backup A1 too
+				
+			// Go through all the objects to see if my target is still here
+			A4 = 0xffffe380
+			D6.u16 = u16[A4]
+			A4 += 2
+			while (D6.u16 != 0)
+			{
+				A1 = 0xffff0000 + u16[A4]
+				A4 += 2
+				
+				if (A1 == shadow.target)
+				{
+					validTarget = true
+				}
+				
+				D6.u16 -= 2
+			}
+			A1 = pop() //restore A1 too
+			A2 = pop()
+			A3 = pop()
+			A4 = pop()
+		}
+	}
+	shadow.HomingTimer += 1
+	if (!validTarget)
+	{ //stop homing, disable all jump skills too. Controls stay locked if it was from a spindash-jump
+		shadow.HomingTimer = 0
+		shadow.targetsign = 0
+		char.double_jump_state = 2
+		shadow.Homing = 0
+	}
+}
+
+function bool isThisAnHomingTarget()
+{ //Check if the object A1 shadow just hit was any homing target.
+	D0 = u8[A1 + 0x28]
+	//hittable enemies or enemy parts or monitors
+	if ( D0 == 0x06)
+		return true
+	else if ( D0 >= 0x08 && D0 <= 0x11 && D0 != 0x0e)
+		return true
+	else if ( D0 >= 0x16 && D0 <= 0x1c && D0 != 0x1b && D0 != 0x19)
+		return true
+	else if ( D0 == 0x12 && global.zone == 0x02) //only in marble garden, not lava reef
+		return true
+	else if ( D0 == 0x23 || D0 == 0x46 ||  D0 == 0xc6 || D0 == 0xca)
+		return true
+	else if ( D0 == 0xd7 && global.zone != 0x0b ) // not death egg
+		return true
+	return false
+}
+
+//Don't mess the property of shadow if he hit a balloon with an homing
+//# address-hook(0x0317ae) end(0x03181c)
+function void fn0317ae()
+{
+    if (XtraChar != 3)
+	{
+		base.fn0317ae()
+		return
+	}
+		
+	objA1.velocity.y = -0x700
+	objA1.flags2a |= char.flag.IN_AIR
+	objA1.flags2a &= ~(char.flag.CONTROL_LOCK | char.flag.PUSHING)
+	u8[A1 + 0x2e] = 0
+
+	if (shadow.ForceHomingBounce == 0)
+	{
+			// Reset the "char.jumping" to make the character bounce off ignoring the velocity-y limit
+			u8[A1 + 0x40] = 0
+	}
+	
+	objA0.state |= 0x01
+	if (s8[A0 + 0x2c] < 0)
+	{
+		objA1.velocity.y = -0x380
+		if (level.water_present != 0 && u8[A0 + 0x34] == 0)
+		{
+			A2 = 0x03185a
+			fn03181e()
+			fn03181e()
+			fn03181e()
+			fn03181e()
+			objA1.position.x.u16 = objA0.position.x.u16
+			objA1.position.y.u16 = objA0.position.y.u16
+		}
+	}
+
+	if (XtraChar == 3)
+	{		
+		playSound(0x77)
+		u8[A0 + 0x34] = 0x01
+		
+		if (shadow.ForceHomingBounce > 0)
+		{
+			u8[A1 + 0x2f] = 0
+			shadow.HomingTimer = 0
+			objA1.velocity.x = 0
+			objA1.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+			shadow.target = 0
+		}		
+	}
+}
+
+//KNUX IA CHANGES
+//PUNCH THAT STUPID HOMING ATTACKER!
+//# address-hook(0x063eda) end(0x063f0c)
+function void fn063eda()
+{
+	fn08450e()
+	CheckDistanceToPlayers()
+	fn066094()
+	
+	//this returns THE CLOSEST PLAYER into A1. I need to check if it is player1 and Shadow
+	if (A1 == 0xffffb000 && XtraChar == 3 && shadow.Homing == 2 && D3.u16 < 0x20 && D2.u16 < 0x20)
+	//shadow is homing, let's see if he is close enough for a punch to the face
+	//also increased y check to 20 because knux should punch something in air too
+	{
+		fn063ff8()
+		return
+	}
+	
+	if (D3.u16 < 0x10 && D2.u16 < 0x20 && u8[A1 + 0x20] != 2)
+	{
+		fn063ff8()
+		return
+	}
+	
+	--objA0.countdown_value
+	if (objA0.countdown_value < 0)
+	{
+		fn064066()
+	}
+	else
+	{
+		A3 = 0x063f10
+		fn0660be()
+	}
+}
+
+//use the capsule open variable to have shadow jump in the cutscene
+//# address-hook(0x064b6a) end(0x064b7e)
+function void fn064b6a()
+{
+	level.capsule_opened = true
+	fn08450e()
+	UpdateMovementSimple()
+	if (objA0.position.x.u16 <= 0x15c0)
+	{
+		fn064bc6()
+	}
+}
+
+//shadow jumps at the cutscene in ssz too, so use the capsule trick here too
+//# address-hook(0x07d078) end(0x07d096)
+function void fn07d078()
+{
+	fn086932()
+	if (level.wait_for_results)
+		return
+	level.capsule_opened = true
+	stopCharacterWinPose(0xffffb000)
+	stopCharacterWinPose(0xffffb04a)
+	UnloadObject()
+}
+
+
+
+//fix for the blastoid damaging while boosting
+//# translated(0x0879a8) end(0x0879da)
+function bool fn0879a8()
+{
+	//backup stuff as usual, as I don't know where is the player
+	push(A0)
+	A0 = 0xffffb000 // point at player 1, thanks	
+	if (XtraChar != 3)
+	{
+		A0 = pop() //restore register
+		return base.fn0879a8() //use base function		
+	}
+	A0 = pop() //restore register anyway
+	
+
+	fn085870()
+	if (_equal())
+	{
+		return false
+	}
+
+	fn0857c2()
+	if (_equal() && !shadow.isBoosting) //don't hurt shadow if boosting, kill the badnik instead
+	{
+		if (u8[A1 + 0x34] == 0)
+		{
+			Enemy.DamageCharacter()
+		}
+		return false
+	}
+
+	D0.u16 = objA0.subtype2c & 0x0f
+	A3 = 0xfffff7e0
+	u8[A3 + D0.s16] = 0xff
+	fn085732()
+	DrawObject()
+	return true
+}
+
+//SANDOPOLIS 1 BOSS -- the golem head applies speed IN ITS OWN CODE, DAMN IT!
+//# address-hook(0x0772f6) end(0x0773aa)
+function void fn0772f6()
+{
+	if (XtraChar != 3)
+	{
+		base.fn0772f6()
+		return
+	}
+	
+	if (objA0.position.y.u16 < 0x0a10)
+	{
+		if ((objA0.flags2a & 0x40) == 0)
+			return
+		if ((objA0.flags38 & 0x80) == 0)
+			return
+		
+		objA0.flags38 &= ~0x80
+		objA0.base_state = 0x0c
+
+		objA0.countdown_callback = 0x076ca2
+		objA0.hitbox_extends.y = 0x08
+		objA0.animation.sprite = 0
+		objA0.animation.frame = 0
+		objA0.animation.timer = 0
+		objA0.value3a = 0
+		objA0.value39 = 0
+		
+		if (shadow.ForceHomingBounce > 0)
+		{
+			u8[A1 + 0x2f] = 0
+			shadow.HomingTimer = 0
+			objA1.velocity.x = 0
+			objA1.velocity.y = (global.inv_gravity) ? 0x500 : -0x500
+			shadow.target = 0
+		}	
+		
+		playSound(0x59)
+
+		A1 = 0xffff0000 + u16[A0 + 0x44]
+	#if STANDALONE
+		objA0.velocity.x = (objA1.position.x.u16 >= objA0.position.x.u16) ? -0x2c0 : 0x2c0
+	#else
+		objA0.velocity.x = (objA1.position.x.u16 >= objA0.position.x.u16) ? -0x200 : 0x200
+	#endif
+		objA0.velocity.y = -0x200
+	}
+	else
+	{
+		objA0.update_address = 0x076e0a
+		objA0.velocity.x = 0
+		objA0.velocity.y = 0x40
+		objA0.countdown_value = 0xbf
+		hud.dirty.timer = 0
+		screenmover_target.left = move_area.left
+		screenmover_target.right = move_area.right
+		move_area.left = camera.position.x.u16
+		move_area.right = camera.position.x.u16 + getScreenExtend() * 2
+
+		spawnSimpleChildObjects(0x083fee)
+		if (_equal())
+		{
+			u8[A1 + 0x2c] = 0x04
+		}
+	}
+}
+
+
+//SANDOPOLIS 2 BOSS -- the golem head has no target (it's a level chunck, damn it!) so I need the memory address of eggman and apply an offset to it
+//# address-hook(0x07764e) end(0x077668)
+function void fn07764e()
+{
+	// Targets:
+	//  - 0x07767c	-> objA0.base_state = 0x00		-> Initialization
+	//  - 0x0776ea	-> objA0.base_state = 0x02		-> Waiting for the player to come closer
+	//  - 0x077710	-> objA0.base_state = 0x04		-> Brief wait time
+	//  - 0x077772	-> objA0.base_state = 0x06		-> Moving forward without arm movement
+	//  - 0x077790	-> objA0.base_state = 0x08		-> Moving forward with arm movement
+	//  - 0x0777cc	-> objA0.base_state = 0x0a		-> Brief wait time between movement
+	//  - 0x0777f0	-> objA0.base_state = 0x0c		-> Opening / closing
+	call tableLookupAddress(0x07766e, objA0.base_state)
+	shadow.target = A0
+	//System.writeDisplayLine(stringformat("address: %06x", A0)) the address is dynamic, and changes all the time!
+	
+	u16[0xffffeede] = objA0.position.x.u16
+	u16[0xffffeee0] = objA0.position.y.u16
+	Enemy.DrawDynamicObject()
+
+	#if STANDALONE
+		// Mask out sprites below the ground, but except the leftmost part (because of HUD)
+		Renderer.addSpriteMask(200, 192, getScreenWidth()-200, 32, 0xd000, 1)
+	#endif
+}
+
+//stop up when hitting the "air" where the mask is if homing
+//# address-hook(0x05675c) end(0x056786)
+function void fn05675c()
+{
+//backup stuff as usual, as I don't know where the player is stored here
+	push(A0)
+	A0 = 0xffffb000 // point at player 1, thanks	
+	if (XtraChar != 3)
+	{
+		A0 = pop() //restore register
+		base.fn05675c() //use base function		
+		return 
+	}
+	A0 = pop() //restore register anyway
+	
+
+	fn0568de()
+	if (u16[0xffffeedc] == 0)
+	{
+		fn056936()
+		return
+	}
+
+	A1 = 0xffffa934
+	D0 = 0xffffffff
+    D1 = 0x08
+	while (D1.s16 >= 0)
+	{
+		u16[A1-=2] = D0.u16
+		--D0.u16
+		--D1.s16
+	}
+	
+	if (shadow.Homing == 2) //shadow was homing, stop the homing and turn it to new status 3 to be handled in the "in air" function on the next frame
+	{
+		shadow.Homing = 3
+	}
+	
+	playSound(0x6e)
+	u16[0xffffeed8] = 3
+	u16[0xffffeeda] += 4
+	fn05678a()
+}
+
+//Turn off the boost on the stupid ssz bars
+//# address-hook(0x0453e6) end(0x045526)
+function void fn0453e6()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn0453e6()
+		return
+	}
+
+	if (u8[A2] == 0)
+	{
+		if (u8[A2 + 0x02] != 0)
+		{
+			--u8[A2 + 0x02]
+			if (u8[A2 + 0x02] != 0)
+				return
+			objA0.sprite_priority = 0x0180
+		}
+
+		D0.u16 = objA1.position.x.u16 - objA0.position.x.u16 + 0x28
+		if (D0.u16 >= 0x50)
+			return
+
+		D0.u16 = objA1.position.y.u16 - objA0.position.y.u16
+		if (D0.u16 >= 0x18)
+			return
+
+		if (u8[A1 + 0x2e] != 0 || u8[A1 + 0x05] >= 0x04 || debug_mode.state != 0)
+			return
+
+		playSound(0x4a)
+		//disable stuff, restore control lock too
+		shadow.isBoosting = false
+		shadow.airBoost = false
+		objA1.flags2a &= ~char.flag.CONTROL_LOCK
+		
+		u8[A2] = 0xff
+
+		objA1.position.y.u16 = objA0.position.y.u16 + D1.u16
+		objA1.velocity.x = 0
+		u16[A1 + 0x1c] = 0
+		u8[A1 + 0x3d] = 0
+		u8[A1 + 0x2e] = 0x03
+		u8[A1 + 0x04] &= 0xfc
+		u8[A1 + 0x20] = 0
+
+		D0.u16 = (u8[A1 + 0x2a] & char.flag.FACING_LEFT) ? 0xe9 : 0xe5
+		u8[A1 + 0x22] = D0.u8
+		SetCharacterSpritePatterns()
+	}
+	else
+	{
+		objA1.position.y.u16 = objA0.position.y.u16 + D1.u16
+		if (u8[A1 + 0x05] >= 0x04)
+		{
+			u8[A1 + 0x2e] = 0
+			u8[A2] = 0
+			u8[A2 + 0x02] = 0x3c
+		}
+		else
+		{
+			D1.u16 = D0.u16 & 0xff70
+			if (D1.u8 != 0)
+			{
+				u8[A1 + 0x2e] = 0
+				u8[A2] = 0
+				u8[A2 + 0x02] = 0x1e
+				objA0.sprite_priority = 0x80
+
+				D1.u16 = -0x200
+				D2.u16 = -0x400
+				if ((D0 & 0x0400) == 0)
+				{
+					objA0.sprite_priority = 0x0180
+					D1.s16 = -D1.s16
+					if ((D0 & 0x0800) == 0)
+					{
+						D1 = 0
+						if (D0 & 0x0200)
+						{
+							D2 = 0
+						}
+					}
+				}
+
+				objA1.velocity.x = D1.u16
+				D0 = s32[A0 + 0x2e] >> 8
+				D0.u16 += D2.u16
+				objA1.velocity.y = D0.u16
+				u8[A1 + 0x1e] = 0x0e
+				u8[A1 + 0x1f] = 0x07
+				objA1.state = char.state.ROLLING
+				objA1.flags2a |= (char.flag.IN_AIR | char.flag.ROLLING)
+				u8[A1 + 0x40] = 0x01
+
+				playSound(0x62)
+			}
+		}
+	}
+}
+
+//Jump ramps in AIZ and LRZ
+//without a change the boost action interferes with the leap
+// I need to have the leap, but not change the action's properties
+//# address-hook(0x024d9a) end(0x024e32)
+function void fn024d9a()
+{
+	//OBJA1 is the character
+    if (XtraChar != 3)
+	{
+		base.fn024d9a()
+		return
+	}
+
+	
+	if (u8[A1 + 0x2a] & 0x02)
+		return
+	
+	s16 dx = objA1.position.x.u16 - objA0.position.x.u16 + 0x10
+	s16 dy = objA1.position.y.u16 - objA0.position.y.u16
+	if (dx >= 0 && dx < 0x20 && dy >= -0x14 && dy <= 0x20)
+	{			
+		if (u8[A1 + 0x2e] == 0)
+		{
+			if (!shadow.isBoosting)
+			{
+				
+			if ((objA0.flags2a & 0x01) == 0)
+			{
+				if (objA1.velocity.x < 0x400)
+					return
+
+				objA1.velocity.x += 0x400
+			}
+			else
+			{
+				if (objA1.velocity.x > -0x400)
+					return
+
+				objA1.velocity.x -= 0x400
+			}
+			
+			u8[A1 + 0x05] = 2
+			u16[A1 + 0x1c] = 1
+			u8[A1 + 0x27] = 1
+			u8[A1 + 0x20] = 0
+			u8[A1 + 0x30] = 0
+			u8[A1 + 0x31] = 4
+			u8[A1 + 0x2d] = 5			
+			}
+			u8[A1 + 0x2a] |= 0x02 //in air flag
+			objA1.velocity.y = -0x700
+			
+		}
+	}
+}
+
+//Stop the boost on sand streams for sandopolis. A1 is the player.
+//Stream going down
+//# address-hook(0x03fd4e) end(0x03fe42)
+function void fn03fd4e()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn03fd4e()
+		return
+	}
+
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16 + 0x10
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + D2.u16
+	u8 bit = (1 << D6.u8)
+
+	if ((objA0.flags2a & bit) == 0)
+	{
+		if (dx < 0x20 && dy < D3.u16)
+		{
+			if (u8[A1 + 0x2a] & 0x02 && (u8[A1 + 0x2a] & 0x08) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+			{
+				objA0.flags2a |= bit
+
+				u8[A1 + 0x1e] = 0x0e
+				u8[A1 + 0x1f] = 0x07
+				objA1.state = char.state.ROLLING
+				objA1.flags2a |= (char.flag.ROLLING | char.flag.ON_OBJECT)
+				objA1.flags2a &= ~char.flag.CONTROL_LOCK
+				u8[A1 + 0x2f] = 0
+				u8[A1 + 0x40] = 0
+				objA1.velocity.y >>= 1
+				objA1.velocity.x >>= 1
+			}
+		}
+	}
+	else
+	{
+		if (dx < 0x20 && dy < D3.u16)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			if (u8[A1 + 0x2a] & 0x02)
+			{
+				// Check if jump button pressed
+				if (D5.u16 & CONTROL_ABC)
+				{
+					objA1.velocity.y = -0x800
+					playSound(0x62)
+				}
+
+			#if STANDALONE
+				bool pressInDirection = ((D5.u16 >> 8) & ((objA1.velocity.x < 0) ? CONTROL_LEFT : CONTROL_RIGHT)) != 0
+				if (pressInDirection)
+				{
+					// Give player a bit more control over movement speed
+					objA1.velocity.x = objA1.velocity.x * 3/4
+				}
+				else
+			#endif
+				{
+					objA1.velocity.x >>= 1
+				}
+
+				if (objA1.velocity.y < 0)
+				{
+					objA1.velocity.y += 0x68
+				}
+				else
+				{
+					objA1.velocity.y = (objA0.flags2a & 0x02) ? -0x198 : 0xa8
+				}
+				return
+			}
+		}
+
+		u8[A1 + 0x2a] &= ~0x08
+		objA0.flags2a &= ~bit
+	}
+}
+
+//Stream going sideways
+//# address-hook(0x03fe70) end(0x03ff7e)
+function void fn03fe70()
+{
+	//OBJA1 is the character
+    if (XtraChar != 3)
+	{
+		base.fn03fe70()
+		return
+	}
+	
+	if (u8[A2] != 0)
+	{
+		--u8[A2]
+		return
+	}
+
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16 + D2.u16
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + 0x10
+
+	if ((objA0.flags2a & (1 << D6.u8)) == 0)
+	{
+		if (dx < D3.u16 && dy < 0x20)
+		{
+			if (u8[A1 + 0x2a] & 0x02 && (u8[A1 + 0x2a] & 0x08) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0 && objA1.velocity.y >= 0)
+			{
+				u8[A1 + 0x2a] |= 0x08
+				objA0.flags2a |= (1 << D6.u8)
+				u8[A1 + 0x1e] = 0x0e
+				u8[A1 + 0x1f] = 0x07
+				u8[A1 + 0x20] = 0x02
+				u8[A1 + 0x2a] |= 0x04
+				objA1.flags2a &= ~char.flag.CONTROL_LOCK
+				u8[A1 + 0x2f] = 0
+				u8[A1 + 0x40] = 0
+				objA1.velocity.y >>= 1
+				objA1.velocity.x >>= 1
+			}
+		}
+	}
+	else
+	{
+		if (dx < D3.u16 && dy < 0x20)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			if (u8[A1 + 0x2a] & 0x02)
+			{
+				D5.u16 &= 0x70
+				if (D5.u16 != 0)
+				{
+					objA1.velocity.y = 0x0400
+					u8[A1 + 0x2a] &= ~0x08
+					objA0.flags2a &= ~(1 << D6.u8)
+
+					u8[A2] = 0x1e
+					playSound(0x62)
+				}
+				else
+				{
+					objA1.velocity.y = 0
+				#if STANDALONE
+					// Give player a bit more control over movement speed
+					objA1.velocity.x = objA1.velocity.x * 3/4
+				#else
+					objA1.velocity.x >>= 1
+				#endif
+					u32[A1 + 0x10] += (objA0.flags2a & 0x01) ? -0xb000 : 0xb000
+				}
+				return
+			}
+		}
+
+		objA1.velocity.y = 0
+		u8[A1 + 0x2a] &= ~0x08
+		objA0.flags2a &= ~(1 << D6.u8)
+	}
+}
+
+
+//Spinning upward sand
+//# address-hook(0x03ff9e) end(0x0400c8)
+function void fn03ff9e()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn03ff9e()
+		return
+	}
+	
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16 + 0x20
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + D2.u16
+
+	u8 bit = 1 << D6.u8
+	if ((objA0.flags2a & bit) == 0)
+	{
+		if (dx < 0x40 && dy < D3.u16)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			if ((u8[A1 + 0x2a] & char.flag.ON_OBJECT) == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+			{
+				if ((objA0.flags2a & 0x02) == 0 && (u8[A1 + 0x2a] & char.flag.IN_AIR) == 0)
+					return
+
+				objA0.flags2a |= bit
+				objA1.flags2a |= char.flag.IN_AIR
+				objA1.flags2a |= char.flag.ON_OBJECT
+				objA1.flags2a &= ~char.flag.ROLLING
+				objA1.flags2a &= ~char.flag.CONTROL_LOCK
+				u8[A1 + 0x2f] = 0
+				u8[A1 + 0x40] = 0
+
+				D6 = 1
+				u16[A1 + 0x1c] = 1
+				if (u8[A1 + 0x27] == 0)
+				{
+					u8[A1 + 0x27] = 1
+					u8[A1 + 0x20] = 0
+					u8[A1 + 0x30] = 0x7f
+					u8[A1 + 0x31] = 0x08
+				}
+
+			#if STANDALONE
+				// Fix for bug when Tails carries other player and gets caught by the sand flow
+				if (u8[A1 + 0x38] == CHARACTER_TAILS && tails.carrying)
+				{
+					u8[0xffffb02a] |= char.flag.IN_AIR
+					u8[0xffffb02e] = 0
+				}
+			#endif
+			}
+		}
+	}
+	else
+	{
+		if (dx < 0x40 && dy < D3.u16)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			if (u8[A1 + 0x2e] == 0 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2a] & char.flag.IN_AIR)
+			{
+				u8[A1 + 0x30] = 0x7f
+				if (objA1.velocity.y < 0)
+				{
+					objA1.velocity.y += 0x68
+				}
+				else
+				{
+					objA1.velocity.y = 0xa8
+					if (objA0.flags2a & 0x02)
+					{
+						objA1.velocity.y = -0x330
+					}
+				}
+				if ((level.framecounter.low & 0x07) == 0)
+				{
+					objA1.velocity.x >>= 1
+				}
+				return
+			}
+		}
+
+		objA1.flags2a &= ~char.flag.ON_OBJECT
+		objA0.flags2a &= ~bit
+	}
+}
+
+//Water pipes in lbz should disable the homing action
+//if the player is sucked in while homing it softlocks
+//# address-hook(0x029620) end(0x0296d2)
+function void fn029620()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn029620()
+		return
+	}
+	if (debug_mode.state != 0)
+		return
+	
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16 + 0x10
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + 0x18
+	if (dx < 0x20 && dy < 0x28 && u8[A1 + 0x2e] == 0)
+	{
+		//kill the homing
+		shadow.Homing = 0
+		shadow.HomingTimer = 0
+	
+		// Character gets caught and moved by this object now
+		u8[A4] += 2
+		u8[A4 + 0x01] = 0
+
+		objA0.flags2a &= ~0x20
+
+		objA1.position.x.u16 = objA0.position.x.u16
+		objA1.position.y.u16 = objA0.position.y.u16
+		objA1.velocity.x = 0
+		objA1.velocity.y = 0
+		objA1.groundspeed = 0x0800
+		objA1.flags2a &= ~char.flag.PUSHING
+		objA1.flags2a |= char.flag.IN_AIR
+		objA1.state = char.state.ROLLING
+		u8[A1 + 0x2e] = 0x81
+		u8[A1 + 0x40] = 0
+
+		fn0297a2()
+
+		playSound(0x3c)
+
+		if (objA0.subtype2c & 0x20 && global.act != 0)
+		{
+		#if STANDALONE
+			// Remove priority flag for character
+			objA1.sprite_attributes &= ~0x8000
+
+			// Update achievement
+			if (A1 == 0xffffb000)
+			{
+				Game.setAchievementValue(ACHIEVEMENT_LBZ_STAY_DRY, 0)
+			}
+		#endif
+
+			// Remove shields like water does
+			if (u8[A1 + 0x2b] & char.bonus.SHIELD_FIRE)
+			{
+				u8[A1 + 0x2b] &= ~(char.bonus.SHIELD_FIRE | char.bonus.ANY_SHIELD)
+			}
+			if (u8[A1 + 0x2b] & char.bonus.SHIELD_LIGHTNING)
+			{
+				u8[A1 + 0x2b] &= ~(char.bonus.SHIELD_LIGHTNING | char.bonus.ANY_SHIELD)
+			}
+		}
+	}
+}
+
+
+//Gravity floaters in DEZ
+//# address-hook(0x04952a) end(0x0495d6)
+function void fn04952a()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn04952a()
+		return
+	}
+
+	D0.u16 = objA1.position.x.u16 - objA0.position.x.u16 + 0x40
+	if (D0.u16 < 0x80)
+	{
+		LookupSinCos()
+		D0.s16 = (D0.s16 >> 2) + 0x20
+		D2.u16 = D0.u16 + 0x20
+		D1 = objA1.position.y.u16 - objA0.position.y.u16 + D0.u16
+
+		if (D1.u16 < D2.u16 && u8[A1 + 0x05] < 0x04 && u8[A1 + 0x2e] == 0)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			D1.u16 -= D0.u16
+			if (D1.s16 >= 0)
+			{
+				D1.u16 = (D1.u16 ^ 0xffff) * 2
+			}
+			D1.u16 += D0.u16
+			D1.s16 = (-D1.s16) >> 4
+			objA1.position.y.u16 += D1.u16
+			objA1.velocity.y = 0
+			objA1.flags2a |= char.flag.IN_AIR
+			objA1.flags2a &= ~char.flag.CONTROL_LOCK
+			u8[A1 + 0x2f] = 0
+			u8[A1 + 0x40] = 0
+			u16[A1 + 0x1c] = 0x01
+
+		#if STANDALONE
+			// Remove spindash flag
+			u8[A1 + 0x3d] = 0
+		#endif
+
+			if ((level.framecounter.low & 0x0f) == 0)
+			{
+				playSound(0xd9)
+			}
+
+			if (u8[A1 + 0x27] == 0)
+			{
+				objA1.state = char.state.RUNNING
+				u8[A1 + 0x27] = 0x01
+				u8[A1 + 0x30] = 0x7f
+				u8[A1 + 0x31] = 0x08
+			}
+		}
+	}
+}
+
+//Gravity room in dez1
+//# address-hook(0x04964a) end(0x049764)
+function void fn04964a()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn04964a()
+		return
+	}
+
+	u16 dx = objA1.position.x.u16 - objA0.position.x.u16
+	u16 dy = objA1.position.y.u16 - objA0.position.y.u16 + 0x0140
+	if (u8[A2] == 0)
+	{
+		if (dx < 0x0500 && dy < 0x0280 && debug_mode.state == 0)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			u8[A1 + 0x20] = 0
+			u8[A1 + 0x27] = 0x01
+			objA1.flags2a &= ~char.flag.CONTROL_LOCK
+			objA1.flags2a |= char.flag.IN_AIR
+			u8[A1 + 0x2e] = 0x01
+			u8[A1 + 0x30] = 0xff
+			u8[A1 + 0x31] = 0x04
+			u8[A1 + 0x40] = 0
+			u8[A2] = 1
+		}
+	}
+	else
+	{
+		if (dx < 0x0500 && debug_mode.state == 0)
+		{
+			if (shadow.isBoosting)
+			{
+				shadow.isBoosting = false
+				char.double_jump_state = 2
+				shadow.airBoost = false
+			}
+			objA1.velocity.x += 0x38
+			D6.u16 = 0x0600
+			D5.u16 = 0x18
+			D0.u16 = objA1.velocity.y
+
+			if (D4 & 0x0100)
+			{
+				D0.u16 -= D5.u16
+				D1.s16 = -D6.s16
+				if (D0.s16 <= D1.s16)
+				{
+					D0.u16 += D5.u16
+					if (D0.s16 > D1.s16)
+					{
+						D0.u16 = D1.u16
+					}
+				}
+			}
+
+			if (D4 & 0x0200)
+			{
+				D0.u16 += D5.u16
+				if (D0.s16 >= D6.s16)
+				{
+					D0.u16 -= D5.u16
+					if (D0.s16 < D6.s16)
+					{
+						D0.u16 = D6.u16
+					}
+				}
+			}
+
+			objA1.velocity.y = D0.u16
+			D0.u16 = objA1.velocity.y
+			D1.s16 = D0.s16 >> 5
+			if (D1.u16 != 0)
+			{
+				if (D1.s16 >= 0)
+				{
+					D0.u16 -= D1.u16
+					if (D0.s16 < 0)
+						D0.u16 = 0
+					objA1.velocity.y = D0.u16
+				}
+				else
+				{
+					D0.u16 -= D1.u16
+					if (D0.s16 > 0)
+						D0.u16 = 0
+					objA1.velocity.y = D0.u16
+				}
+			}
+
+			pushAll()
+			A0 = A1
+			UpdateMovementStraightSimple()
+			Character.UpdateRotationInAir()
+			Character.CheckCollision()
+			popAll()
+
+			objA1.flags2a |= char.flag.IN_AIR
+			if ((level.framecounter.low & 0x0f) == 0)
+			{
+				playSound(0xd4)
+			}
+		}
+		else
+		{
+			u8[A1 + 0x2e] = 0
+			u8[A2] = 0
+		}
+	}
+}
+
+//launch base zone wall trigger
+//# address-hook(0x025d2c) end(0x025d52)
+function void fn025d2c()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn025d2c()
+		return
+	}
+	
+	if (u8[A1 + 0x20] == 0x02)
+	{
+		if (shadow.ForceHomingBounce == 0)
+		{
+			objA1.velocity.x = -objA1.velocity.x
+			objA1.velocity.y = -objA1.velocity.y
+		}
+		u8[A3] ^= (1 << D3.u8)
+		objA0.update_address = 0x01e5e0
+		objA0.base_state = 0x02
+		u8[A0 + 0x28] = 0
+		u8[A0 + 0x29] = 0
+	}
+}
+
+//lava reef wall trigger
+//# address-hook(0x042ec0) end(0x042ee6)
+function void fn042ec0()
+{
+	//OBJA1 is the character
+	if (XtraChar != 3)
+	{
+		base.fn042ec0()
+		return
+	}
+	if (u8[A1 + 0x20] == 2)
+	{
+		if (shadow.ForceHomingBounce == 0)
+		{
+			objA1.velocity.x = -objA1.velocity.x
+			objA1.velocity.y = -objA1.velocity.y
+		}
+		u8[A3] |= (1 << D3.u8)
+		objA0.update_address = 0x01e5e0
+		objA0.base_state = 0x02
+		u8[A0 + 0x28] = 0
+		u8[A0 + 0x29] = 0
+	}
+}
