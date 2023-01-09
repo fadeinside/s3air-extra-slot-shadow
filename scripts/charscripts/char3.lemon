@@ -220,3 +220,23 @@ function void fn02e3b8()
 	global.characters = CHARS_KNUCKLES_ALONE
 	call tableLookupAddress(0x02e3c6, objA0.base_state)
 }
+
+// Returns the name of active Extra character.
+function string ExtraChar.getCharacterName(u8 xtrachar)
+{
+	if (xtrachar == 5)
+		return (hasPartner) ? "Shadow & Tails" : "3D2D Shadow"
+	
+	return base.ExtraChar.getCharacterName(xtrachar)
+}
+
+
+// Sets the availability status of the character for selection in the Competition menu.
+function bool ExtraChar.CompetitionMode.isCharacterAvailable(u8 xtrachar)
+{
+	if (xtrachar == 5)
+		return true
+	
+	// Call the base function
+	return base.ExtraChar.CompetitionMode.isCharacterAvailable(xtrachar)
+}
