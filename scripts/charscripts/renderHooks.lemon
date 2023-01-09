@@ -1,6 +1,6 @@
 function string LivesandContinuesShadow()
 {
-	return (Mods.isModActive("Mania Style Data Select")) ? "dataSel_lifeContinue_shadow" : "dataSel_lifeContinue_slot3"
+	return (Mods.isModActive("Mania Style Data Select")) ? "dataSel_lifeContinue_shadow" : "dataSel_lifeContinue_slot5"
 }
 
 // if (objA0.mapping_offset == 0x3a1aee) replaced by
@@ -60,7 +60,7 @@ function void ExtraChar.DataSelect.drawCharacterIconsSprite(s16 px, s16 py, u16 
 			{
 				if (System.getGlobalVariableValueByName("MenuStyle.noContinues") == 1)
 				{
-					key = (Mods.isModActive("Mania Style Data Select")) ? "dataSel_life_shadow" : "dataSel_life_slot3"
+					key = (Mods.isModActive("Mania Style Data Select")) ? "dataSel_life_shadow" : "dataSel_life_slot5"
 				}
 				else
 				{
@@ -68,7 +68,7 @@ function void ExtraChar.DataSelect.drawCharacterIconsSprite(s16 px, s16 py, u16 
 				}
 				if (Renderer.hasCustomSprite(key))
 				{
-					if (u8[A0 + 0x05] == 0x01 && u8[A0 + 0x08] != 0x01)
+					if (u8[A0 + 0x05] == 0x05 && u8[A0 + 0x08] != 0x01)
 					{
 						Renderer.drawCustomSprite(key, px - 16, py + ((System.getGlobalVariableValueByName("MenuStyle.noContinues") == 1) ? 24 : 8), 0x00, SPRITE_FLAG_PRIO, renderQueue)
 					}
@@ -80,7 +80,7 @@ function void ExtraChar.DataSelect.drawCharacterIconsSprite(s16 px, s16 py, u16 
 			key = LivesandContinuesShadow()
 			if (Renderer.hasCustomSprite(key))
 			{
-				if (u8[A0 + 0x05] == 0x01 && u8[A0 + 0x08] != 0x01)
+				if (u8[A0 + 0x05] == 0x05 && u8[A0 + 0x08] != 0x01)
 				{
 					Renderer.drawCustomSprite(key, px - 16, py + 8, 0x00, SPRITE_FLAG_PRIO, renderQueue)
 				}
@@ -90,7 +90,7 @@ function void ExtraChar.DataSelect.drawCharacterIconsSprite(s16 px, s16 py, u16 
 		key = LivesandContinuesShadow()
 		if (Renderer.hasCustomSprite(key))
 		{
-			if (u8[A0 + 0x05] == 0x01 && u8[A0 + 0x08] != 0x01)
+			if (u8[A0 + 0x05] == 0x05 && u8[A0 + 0x08] != 0x01)
 			{
 				Renderer.drawCustomSprite(key, px - 16, py + 8, 0x00, SPRITE_FLAG_PRIO, renderQueue)
 			}
@@ -119,14 +119,14 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		if (px >= 188 && px <= 208 && u16[0xffffb04a + 0x010] >= 0x130 && u16[0xffffb04a + 0x010] <= 0x0150)
             {
     			u64 portrait = 0
-    			if (objA0.animation.sprite == 5 && objA0.animation.timer == 3)
+    			if (objA0.animation.sprite == 5 && objA0.animation.timer == 5)
 				{
 					if (u8[A0 + 0x23] == 0x18)
-						portrait = "dataSel_savePortrait_slot3"
+						portrait = "dataSel_savePortrait_slot5"
 					else if (u8[A0 + 0x23] == 0x19)
-						portrait = "dataSel_savePortrait_superslot3"
+						portrait = "dataSel_savePortrait_superslot5"
 					else if (u8[A0 + 0x23] == 0x1b)
-						portrait = "Clear_slot3"
+						portrait = "Clear_slot5"
 				}
     			if (portrait != 0 && Renderer.hasCustomSprite(portrait))
     			{
@@ -145,18 +145,18 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
 	if (objA0.update_address == 0x200200 || objA0.update_address == 0x200300)
 	{
 		u8 atex = 0x40 + 5 * 0x20
-		u64 key = (objA0.animation.sprite == 0x01 ? "character_slot3_0xbd": objA0.animation.sprite == 0x02 ? "character_slot3_0xbe": objA0.animation.sprite == 0x03 ? "character_slot3_0xb0": "character_slot3_0xb1")
+		u64 key = (objA0.animation.sprite == 0x01 ? "character_slot5_0xbd": objA0.animation.sprite == 0x02 ? "character_slot5_0xbe": objA0.animation.sprite == 0x03 ? "character_slot5_0xb0": "character_slot5_0xb1")
 		Renderer.drawCustomSprite(key, px, py, atex, flags, renderQueue)
 		shadowp.paletteUpdate()
 
 		return true
 	}
 	
-	if (global.xtrachar == 3)
+	if (global.xtrachar == 5)
 	{
-    	if(objA0.update_address == 0x0837b2 && global.xtrachar == 3) //SIGNPOST
+    	if(objA0.update_address == 0x0837b2 && global.xtrachar == 5) //SIGNPOST
         {		
-    		if(objA0.animation.sprite == 0x00 && global.xtrachar == 3)//SHADOW
+    		if(objA0.animation.sprite == 0x00 && global.xtrachar == 5)//SHADOW
     		{		
     			u8 atex = 0x40 + 0x20 * getMainCharacter()
     			if (global.zone_act == 0x0100)||(global.zone_act == 0x0101) //use the underwater colored for hydrocity 1 and 2 (the sign is moved during act transition)
@@ -171,25 +171,25 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		}            
         }
         
-    	if (PilotS == 0 && global.xtrachar == 3 && (objA0.update_address == 0x0677ce || objA0.update_address == 0x067800)) //0x05ea52
+    	if (PilotS == 0 && global.xtrachar == 5 && (objA0.update_address == 0x0677ce || objA0.update_address == 0x067800)) //0x05ea52
 		{
 			u64 key = "Sonic_Torn"
 			Renderer.drawCustomSprite(key, px, py, 0, flags, renderQueue)
 			return true
 		}
     	
-    	if ((objA0.update_address == 0x067472 || (isSonicIntro() && objA0.update_address == 0x01abb6 && objA0.base_state == 0x1A)) && global.xtrachar == 3)
+    	if ((objA0.update_address == 0x067472 || (isSonicIntro() && objA0.update_address == 0x01abb6 && objA0.base_state == 0x1A)) && global.xtrachar == 5)
     		{
-    			u64 key = (objA0.animation.sprite == 0x21 ? "shadow_float_0": objA0.animation.sprite == 0x22 ? "shadow_float_1": "character_slot3_0x%02x")
+    			u64 key = (objA0.animation.sprite == 0x21 ? "shadow_float_0": objA0.animation.sprite == 0x22 ? "shadow_float_1": "character_slot5_0x%02x")
     			u8 atex = 0x40 + getMainCharacter() * 0x20
     			Renderer.drawCustomSprite(stringformat(key, objA0.animation.sprite), px, py, atex, flags, renderQueue)
     			return true
     		}
     	//CHARACTERS TEXTS
     	//  - Character name			-> objA0.animation.sprite = 0x13 ... 0x16
-    	if (objA0.update_address == 0x02dd98 && global.xtrachar == 3)
+    	if (objA0.update_address == 0x02dd98 && global.xtrachar == 5)
     	{
-    		if (objA0.animation.sprite == 0x13 && global.xtrachar == 3)	// SHADOW
+    		if (objA0.animation.sprite == 0x13 && global.xtrachar == 5)	// SHADOW
     		{
     		    if (Mania_Title_Cards)
     		    {
@@ -217,10 +217,10 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//  - 0x23			   = "got a"
     	//  - 0x24			   = "Chaos Emerald"
     	//  - 0x30			   = "Super Emerald"
-    	if (gameMode == 0x48 || gameMode == 0x0c && global.xtrachar == 3)	// Blue Spheres results + fade to main game afterwards
+    	if (gameMode == 0x48 || gameMode == 0x0c && global.xtrachar == 5)	// Blue Spheres results + fade to main game afterwards
     	{
     		// Blue Spheres results texts
-    		if (objA0.update_address == 0x02ea50 || objA0.update_address == 0x02ec1e || objA0.update_address == 0x02dd98 && global.xtrachar == 3)
+    		if (objA0.update_address == 0x02ea50 || objA0.update_address == 0x02ec1e || objA0.update_address == 0x02dd98 && global.xtrachar == 5)
     		{
     			bool isSKStage = (global.lock_on_state == 0 && global.sk_bluespheres)
     			
@@ -254,7 +254,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//small characters on the tornado
     	//this object address is for BOTH the character ON the plane and the driver!
     	//check its subtype as well
-    	if (objA0.update_address == 0x05ed18 && global.xtrachar == 3) //standing character
+    	if (objA0.update_address == 0x05ed18 && global.xtrachar == 5) //standing character
     	{				
     		if (objA0.subtype2c != 0) //standing character
     		{
@@ -274,7 +274,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     	//small and micro plane
     	//small plane and micro outside
     	//0x05d86a is contemporarily the small tornado flying right and the micro one flying left!
-    	if(objA0.update_address == 0x05d86a && global.xtrachar == 3)
+    	if(objA0.update_address == 0x05d86a && global.xtrachar == 5)
     	{    
     		//if flying left use the micro character
     		if (char.render_flags & 0x01)
@@ -295,7 +295,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     		}		
     	}
     
-        if (objA0.update_address == 0x05e18a && global.xtrachar == 3)
+        if (objA0.update_address == 0x05e18a && global.xtrachar == 5)
     		{
     			u64 key = "ShadowPose"
     			if (Renderer.hasCustomSprite(key))
@@ -305,7 +305,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     			}
     		}
     	
-    	if (global.game_mode == 0x14 && global.xtrachar == 3)
+    	if (global.game_mode == 0x14 && global.xtrachar == 5)
     	{
     			// Continue Icons
     			if (objA0.update_address == 0x05ca5c)
@@ -318,20 +318,20 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     			if (objA0.animation.sprite >= 0x20 && objA0.animation.sprite <= 0xbe && objA0.update_address != 0x05c8c8)
     			{
     				u8 atex = 0x40 + getMainCharacter() * 0x20
-    				u64 key = stringformat("character_slot3_0x%02x", objA0.animation.sprite)
+    				u64 key = stringformat("character_slot5_0x%02x", objA0.animation.sprite)
     				Renderer.drawCustomSprite(key, px, py, atex, flags, renderQueue)
     				return true
     			}
     	}
     		// Continue icon
-    	if ((objA0.update_address == 0x02ebe8 || objA0.update_address == 0x02ec4a) && objA0.animation.sprite >= 0x29 && objA0.animation.sprite <= 0x2b && global.xtrachar == 3)
+    	if ((objA0.update_address == 0x02ebe8 || objA0.update_address == 0x02ec4a) && objA0.animation.sprite >= 0x29 && objA0.animation.sprite <= 0x2b && global.xtrachar == 5)
     	{
     		u64 key = continue_iconsShadow()
     		Renderer.drawCustomSprite(key, px, py, 0x00, flags, renderQueue)
     		return true
     	}
     	//Bluespheres Palette
-    	if (gameMode == 0x34 || gameMode == 0x48 || gameMode == 0x2c || gameMode == 0x30 || global.game_mode == 0x85 || global.game_mode == 0x87) && ((global.xtrachar == 3)) //just check for shadow, thanks!
+    	if (gameMode == 0x34 || gameMode == 0x48 || gameMode == 0x2c || gameMode == 0x30 || global.game_mode == 0x85 || global.game_mode == 0x87) && ((global.xtrachar == 5)) //just check for shadow, thanks!
     	{
     	    if (bluespheres.xtrachar)
     			{
@@ -354,7 +354,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     						}
     					}
     					u8 atex = 0x40 + getMainCharacter() * 0x20
-    					u64 key = (char.animation.sprite != 0xb4 ? stringformat("character_slot3_0x%02x", objA0.animation.sprite) : "character_slot3_0xb3")
+    					u64 key = (char.animation.sprite != 0xb4 ? stringformat("character_slot5_0x%02x", objA0.animation.sprite) : "character_slot5_0xb3")
     					Renderer.drawCustomSprite(key, px, py, atex, flags, renderQueue + 1)
     					return true
     				}
@@ -386,7 +386,7 @@ function bool Standalone.onWriteToSpriteTable(s16 px, s16 py, u16 renderQueue)
     			else 
     			{
     				shadow.FrameCounter = 0
-    				key = stringformat("bluesphere_slot3_0x%02x", objA0.animation.sprite)
+    				key = stringformat("bluesphere_slot5_0x%02x", objA0.animation.sprite)
     			}
     			if (!Renderer.hasCustomSprite(key)) //let's say someone deleted the bluespheres sprites...at least they'll see sonic...
     			{	
@@ -523,7 +523,7 @@ function bool ExtraChar.onWriteToCompetitionSpriteTable(s16 px, s16 py, u16 rend
 
 function string getShadowSprite()
 {
-	return (Mods.isModActive("Mania Style Data Select")) ? "dataSel_character_shadowm" : "dataSel_slot3"
+	return (Mods.isModActive("Mania Style Data Select")) ? "dataSel_character_shadowm" : "dataSel_slot5"
 }
 
 // EXTRA SLOT SAVES SHOULD BE BELOW THIS MOD but ABOVE EXTRA CHARACTER SLOTS!
@@ -553,15 +553,15 @@ function s32 ESS_saveboxgetcolor_Es3()
 function u64 getCharacterPaletteKey(u8 character)
 {
 	u8 gameMode = global.game_mode & 0x7f
-	if (((global.xtrachar == 3 && character == CHARACTER_SONIC) && gameMode != 0x4c) || character == 5)
+	if (((global.xtrachar == 5 && character == CHARACTER_SONIC) && gameMode != 0x4c) || character == 7)
 	{
 	    if (shadow.isBoosting || shadow.Homing>1 || shadow.DropDown)
 	    {
-	        return "slot3boostPalette"
+	        return "slot5boostPalette"
 	    }
 	    else
 	    {
-	        return "slot3palette"
+	        return "slot5palette"
 	    }
 	}
 	
@@ -570,12 +570,12 @@ function u64 getCharacterPaletteKey(u8 character)
 
 function string continue_iconsShadow()
 {
-    return "continue_icon_slot3"
+    return "continue_icon_slot5"
 }
 
 function void shadowp.paletteUpdate()
 {
-	u8 character = 5
+	u8 character = 7
 	u16 blendFactor = clamp((super.palettefx.frame + (3 - super.palettefx.timer) * 6 / 2) * 0x100 / 0x44, 0, 0x100)
 	u32 offset = character * 0x40
 	u32 source = 0x802180 + offset
@@ -634,71 +634,13 @@ function void shadowp.paletteUpdate()
 	}
 }
 
-function void Char3_end()
-{
-    spawnChildObject(0x200080, 0x00, 0, 0)
-}
-
-function void shadowoncoords()
-{
-    objA0.position.x.u16 = 380
-    objA0.position.y.u16 = 304
-}
-
-//so that Mighty gets positioned correctly
-function void Mighty_Coords()
-{
-    objA0.position.x.u16 = (global.xtrachar == 3) ? 333 : 254
-    objA0.position.y.u16 = 304
-}
-
-//# address-hook(0x200080) end(0x200100)
-function void Draw.shadow1()
-{
-	setupObjectAttributesMost(0x060160)
-	objA0.render_flags &= ~0x04
-	objA0.update_address = 0x200200
-	
-	shadowoncoords()
-
-	copyMemory(0xfffffc80, 0x0a8a3c, 0x20)
-
-	if (allocDynamicObjectStd())
-	{
-		objA1.update_address = 0x05ff62
-		u16[A1 + 0x30] = 0xfc02
-		u16[A1 + 0x32] = 0xfc82
-		u16[A1 + 0x3a] = 0x0e
-	}
-}
-
-//# address-hook(0x200200) end(0x200220)
-function void Draw.shadow2()
-{
-	Object.animationProgress(0x06025c)
-	if (u8[0xfffffab8] & 0x04)
-	{
-		objA0.update_address = 0x200300
-		A1 = 0x060260
-		fn084580()
-	}
-	DrawObject()
-}
-
-//# address-hook(0x200300) end(0x200320)
-function void Draw.shadow3()
-{
-	Object.AnimationProgressByLocalA1()
-	DrawObject()
-}
-
 function bool Standalone.onDrawVdpSpriteCompound(s16 px, s16 py, u8 size, u16 index, u16 renderQueue, u8 spriteCounter)
 {
     if (objA0.update_address == 0x00d30c || objA0.update_address == 0x00d42c)
     {
         if (index == 0xab0b || index == 0xab17)    //Sonic icon
         {
-            if (objA0.animation.sprite == 5 && objA0.animation.timer == 3)
+            if (objA0.animation.sprite == 5 && objA0.animation.timer == 5)
             {
                 u64 key
                 if (Mods.isModActive("Mania Style Data Select"))
@@ -718,14 +660,14 @@ function bool Standalone.onDrawVdpSpriteCompound(s16 px, s16 py, u8 size, u16 in
 		if (px >= 120 && px <= 280 && u16[0xffffb04a + 0x010] >= 0x130 && u16[0xffffb04a + 0x010] <= 0x0150)
         {
 			u64 key = 0
-			if (objA0.animation.sprite == 5 && objA0.animation.timer == 3)
+			if (objA0.animation.sprite == 5 && objA0.animation.timer == 5)
 			{
 				if (u8[A0 + 0x23] == 0x18)
-					key = "dataSel_savePortrait_slot3"
+					key = "dataSel_savePortrait_slot5"
 				else if (u8[A0 + 0x23] == 0x19)
-					key = "dataSel_savePortrait_superslot3"
+					key = "dataSel_savePortrait_superslot5"
 				else if (u8[A0 + 0x23] == 0x1b)
-					key = "Clear_slot3"
+					key = "Clear_slot5"
 			}
 			if (key != 0 && Renderer.hasCustomSprite(key))
 			{
@@ -744,7 +686,7 @@ global bool PilotS
 //# address-hook(0x05ecb4) end(0x05ed0c)
 function void fn05ecb4()
 {
-    if (global.xtrachar != 3)
+    if (global.xtrachar != 5)
     {
         base.fn05ecb4()
         return
@@ -783,7 +725,7 @@ function void fn05ecb4()
 //# address-hook(0x05eb32) end(0x05eb66)
 function void fn05eb32()
 {
-	 if (global.xtrachar != 3)
+	 if (global.xtrachar != 5)
     {
         base.fn05eb32()
         return

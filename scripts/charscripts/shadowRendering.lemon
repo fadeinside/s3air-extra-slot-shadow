@@ -1,7 +1,7 @@
 function bool Standalone.drawCharacterSprite(u8 character, u8 variant, s16 px, s16 py, bool asSmallGhost)
 {
 	//Shadow animations will override the normal render
-	if (global.xtrachar == 3 && character == CHARACTER_SONIC && variant < 2) //shadow and NOT tails' tails, and NOT FROZEN IN ICZ REDESIGNED
+	if (global.xtrachar == 5 && character == CHARACTER_SONIC && variant < 2) //shadow and NOT tails' tails, and NOT FROZEN IN ICZ REDESIGNED
 	{//custom render routines
 		return ShadowCustomRendering(character, variant, px, py, asSmallGhost)
 	}
@@ -143,7 +143,7 @@ function bool ShadowCustomRendering(u8 character, u8 variant, s16 px, s16 py, bo
         	}
 		}
 		// HANDLES CUSTOM RUN, WALL LATCH, BOOST, STOMP and FLOAT when transformed		
-		if (global.xtrachar == 3 && character == CHARACTER_SONIC && variant < 2)
+		if (global.xtrachar == 5 && character == CHARACTER_SONIC && variant < 2)
 		{			
 			//Shadow has a lot of sprites that need to be replaced and snapped if smooth rotation is disabled
 			//Angle snapper for all the missing sprites
@@ -296,7 +296,7 @@ function bool ShadowCustomRendering(u8 character, u8 variant, s16 px, s16 py, bo
 				animationSprite = 0xba
 			}
 			//Shadow has no second set of super sprites to use
-			key = stringformat("character_slot3_0x%02x", animationSprite)
+			key = stringformat("character_slot5_0x%02x", animationSprite)
 			
 			if (!Renderer.hasCustomSprite(key))
 			{
@@ -376,7 +376,7 @@ function bool ShadowCustomRendering(u8 character, u8 variant, s16 px, s16 py, bo
 		flags ^= SPRITE_FLAG_FLIP_X
 	}
 
-    if ((char.state == 0x34 || char.state == 0x35) && global.zone == 0x05 && global.xtrachar == 3)
+    if ((char.state == 0x34 || char.state == 0x35) && global.zone == 0x05 && global.xtrachar == 5)
 	{
 		py -= 4
 		key = stringformat("shadow_frozen_%d", (char.state == 0x35) ? 1 : 0)
@@ -534,7 +534,7 @@ function bool ShadowCustomRendering(u8 character, u8 variant, s16 px, s16 py, bo
 	{
 		// Additional offset for Sonic charging a Super Peel-Out (either Hyper Sonic or with Speed Shoes)
 		s16 afterImagesOffsetX = 0
-		if (global.xtrachar == 3 && char.spindash == 0x80)
+		if (global.xtrachar == 5 && char.spindash == 0x80)
 		{
 			afterImagesOffsetX = (char.groundspeed >> 7) * ((char.flags & char.flag.FACING_LEFT) ? 1 : -1)
 		}

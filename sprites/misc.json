@@ -5,8 +5,8 @@
 	"dataSel_life_shadow":  { "File": "dataSel_lifeContinueShadowm.png", "Rect": "0,0,25,16", "Center": "5,16" },
 	
 	//data select
-	"dataSel_slot3":  { "File": "interface.png", "Rect": "38,16,28,39", "Center": "13,39" },
-	"dataSel_lifeContinue_slot3":  { "File": "interface.png", "Rect": "18,16,20,40", "Center": "16,-8" },
+	"dataSel_slot5":  { "File": "interface.png", "Rect": "38,16,28,39", "Center": "13,39" },
+	"dataSel_lifeContinue_slot5":  { "File": "interface.png", "Rect": "17,16,21,41", "Center": "0,0" },
 	
 	//data select but extra save slots
 	"ESS_Cont_Es3":  { "File": "icons_saveextra.png", "Rect": "40,16,20,24", "Center": "10,24" },
@@ -34,12 +34,12 @@
 	"3_snowboarding_0x0c":  { "File": "shadow_snowboarding.png", "Rect": "616,4,56,56", "Center": "26,22" },
 
     //bumper of blue spheres
-    "bump_slot3_0x00":  { "File": "bumper.png", "Rect": "0,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x01":  { "File": "bumper.png", "Rect": "24,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x02":  { "File": "bumper.png", "Rect": "48,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x03":  { "File": "bumper.png", "Rect": "72,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x04":  { "File": "bumper.png", "Rect": "96,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x05":  { "File": "bumper.png", "Rect": "120,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x06":  { "File": "bumper.png", "Rect": "144,0,16,16", "Center": "8,8" },
-	"bump_slot3_0x07":  { "File": "bumper.png", "Rect": "168,0,16,16", "Center": "8,8" },
+    "bump_slot5_0x00":  { "File": "bumper.png", "Rect": "0,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x01":  { "File": "bumper.png", "Rect": "24,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x02":  { "File": "bumper.png", "Rect": "48,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x03":  { "File": "bumper.png", "Rect": "72,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x04":  { "File": "bumper.png", "Rect": "96,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x05":  { "File": "bumper.png", "Rect": "120,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x06":  { "File": "bumper.png", "Rect": "144,0,16,16", "Center": "8,8" },
+	"bump_slot5_0x07":  { "File": "bumper.png", "Rect": "168,0,16,16", "Center": "8,8" },
 }

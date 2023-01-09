@@ -7,14 +7,15 @@ include palettes
 global bool hasPartner
 global bool isSpeedshoes
 
-function void Slot3Char()
+// slot5Char replaced by
+function void ExtraChar.startup_char5()
 {
 	global.characters = (hasPartner == 0) ? CHARS_SONIC_ALONE : CHARS_SONIC_AND_TAILS
 }
 
 function u64 getCharacterBonusTextIcon(u8 character)
 {
-	if (global.xtrachar == 3)
+	if (global.xtrachar == 5)
 	{
 		return "3hud_bonus_icon_blue"
 	}
@@ -22,7 +23,7 @@ function u64 getCharacterBonusTextIcon(u8 character)
 		return base.getCharacterBonusTextIcon(character)
 }
 
-function u64 Slot3MonitorKeys(u8 type)
+function u64 ExtraChar.getIconSpriteKey_char5(u8 type)
 {
 	if (type == 0)
 		return "monitor_icon_static"
@@ -53,7 +54,8 @@ function u64 Slot3MonitorKeys(u8 type)
 	return 0
 }
 
-function bool XtraThreeHUD()
+// XtraThreeHUD replaced by
+function bool ExtraChar.renderHUD_char5()
 {
 
 #if STANDALONE
@@ -156,7 +158,7 @@ function bool XtraThreeHUD()
 			u16 px = useMobilePosition ? (getScreenWidth() - baseX - 0x30) : baseX
 			u16 py = useMobilePosition ? baseY : 200
 			
-			HUD.drawSprite("hud_lives_icon_slot3", px, py, renderQueue)
+			HUD.drawSprite("hud_lives_icon_slot5", px, py, renderQueue)
 			++renderQueue
 
 			if (lives_counter >= 10)
@@ -210,7 +212,7 @@ function bool XtraThreeHUD()
 //# address-hook(0x02e3b8) end(0x02e3c2)
 function void fn02e3b8()
 {
-	if (global.xtrachar != 3)
+	if (global.xtrachar != 5)
 	{
 		base.fn02e3b8()
 		return

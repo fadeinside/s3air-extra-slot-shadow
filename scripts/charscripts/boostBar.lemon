@@ -4,7 +4,7 @@ function void RenderHUD()
 {
 	
 	//Draw only for shadow!
-	if (global.xtrachar != 3)
+	if (global.xtrachar != 0x05)
 	{
 		base.RenderHUD()
 		return
@@ -113,7 +113,8 @@ function void RenderHomingTarget()
 		key = "shadow_target_7"
 	
 	u16 renderQueue = 0xe000
-	HUD.drawSprite(key, tx, ty, renderQueue)
+	if (Renderer.hasCustomSprite(key))
+		HUD.drawSprite(key, tx, ty, renderQueue)
 	A1 = pop()
 }
 
